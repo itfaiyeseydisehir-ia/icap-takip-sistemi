@@ -1,0 +1,20 @@
+{
+  "name": "Seydişehir İtfaiyesi İcap Takip",
+  "short_name": "İcap Takip",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f5f6",
+  "theme_color": "#9c2b2b",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
