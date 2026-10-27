@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Seydişehir İtfaiyesi - İcap Takip</title>
 <link rel="manifest" href="manifest.json">
+<!-- Supabase Kütüphanesi -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{--kirmizi:#9c2b2b;--kirmizi-koyu:#6f1d1d;--yesil:#2f7a52;--yesil-acik:#eef6f1;--mavi:#35618a;--mavi-acik:#eef3f7;--turuncu:#b5721f;--turuncu-acik:#faf3e8;--mor:#6a5590;--mor-acik:#f1eef6;--arka:#f4f5f6;--kart:#fff;--kenar:#e4e6e9;--metin:#23262b;--ikincil:#6b7178;--soluk:#979da3;--golge:0 2px 10px rgba(20,22,26,.05)}
@@ -21,7 +22,7 @@
   .btn{width:100%;padding:13px;border-radius:10px;font-size:14px;font-weight:800;transition:.15s;margin-bottom:8px}
   .btn-primary{background:linear-gradient(135deg,var(--yesil),#245f42);color:#fff}
   .btn-kirmizi{background:var(--kirmizi);color:#fff}.btn-mor{background:var(--mor);color:#fff}.btn-mavi{background:var(--mavi);color:#fff}
-  .btn-link{background:none;color:var(--kirmizi);font-weight:700;font-size:13px;padding:8px 0;text-decoration:underline}
+  .btn-link{background:none;color:var(--kirmizi);font-weight:700;font-size:13px;padding:8px 0;text-decoration:underline;width:100%}
   .hata-metin{color:#a33a3a;font-size:12px;text-align:center;margin-top:10px;min-height:16px;font-weight:600}
   .ust-bar{background:linear-gradient(135deg,var(--kirmizi-koyu),var(--kirmizi));color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
   .ust-bar-sol{display:flex;align-items:center;gap:10px}.ust-bar-baslik{font-size:14px;font-weight:800}.ust-bar-alt{font-size:11px;opacity:.82}
@@ -63,7 +64,8 @@
       <button type="submit" class="btn btn-primary">Giriş Yap</button>
       <div id="girisHata" class="hata-metin"></div>
     </form>
-    <button class="btn-link" style="width:100%" onclick="ekranDegistir('ekranKayit')">İlk Kez Kayıt Ol / Şifre Sıfırla</button>
+    <!-- Butona type="button" eklendi ki formu yanlışlıkla göndermesin -->
+    <button type="button" class="btn-link" onclick="ekranDegistir('ekranKayit')">İlk Kez Kayıt Ol / Şifre Sıfırla</button>
   </div>
 </div>
 
@@ -77,7 +79,7 @@
       <button type="submit" class="btn btn-primary">Kayıt Ol</button>
       <div id="kayitHata" class="hata-metin"></div>
     </form>
-    <button class="btn-link" style="width:100%" onclick="ekranDegistir('ekranGiris')">Geri Dön</button>
+    <button type="button" class="btn-link" onclick="ekranDegistir('ekranGiris')">Geri Dön</button>
   </div>
 </div>
 
@@ -87,7 +89,7 @@
     <div class="ust-bar-sol"><div><div class="ust-bar-baslik">🔥 İcap Takip</div><div class="ust-bar-alt" id="ustVardiya"></div></div></div>
     <div class="ust-bar-sag">
       <div class="kullanici-bilgi"><strong id="ustIsim"></strong><span id="ustRol"></span></div>
-      <button class="cikis-btn" onclick="cikisYap()">Çıkış</button>
+      <button type="button" class="cikis-btn" onclick="cikisYap()">Çıkış</button>
     </div>
   </div>
   <div class="ana-icerik">
@@ -101,11 +103,41 @@
 
 <script>
 // ============================================================
-// BURAYA KENDİ SUPABASE BİLGİLERİNİ YAPIŞTIR
+// HATA YAKALAYICI KALKAN (Debugger)
+// ============================================================
+window.onerror = function(msg, url, line, col, error) {
+  alert("SİSTEM HATASI YAKALANDI!\n\nMesaj: " + msg + "\nSatır: " + line + "\nKolon: " + col);
+  return false;
+};
+
+// ============================================================
+// EKRAN DEĞİŞTİRME FONKSİYONU (En üste alındı ki hata verse bile çalışsın)
+// ============================================================
+function ekranDegistir(id) {
+  try {
+    document.querySelectorAll('.ekran-orta, .ekran').forEach(e => e.classList.remove('aktif'));
+    document.getElementById(id).classList.add('aktif');
+  } catch (err) {
+    alert("Ekran değiştirme hatası: " + err.message);
+  }
+}
+
+// ============================================================
+// SUPABASE BAĞLANTISI (Güvenli Başlatma)
 // ============================================================
 const SUPABASE_URL = "https://avrdeswpdubsonijbajt.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2cmRlc3dwZHVic29uaWpiYWp0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxMjMzODEsImV4cCI6MjEwODY5OTM4MX0.2bnmnhjk6g3fS9zEOda552GZpZ6TjY0889pd9DT6zl4";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let supabase = null;
+try {
+  if (typeof window.supabase === 'undefined') {
+    alert("KRİTİK HATA: Supabase kütüphanesi (CDN) yüklenemedi! İnternet bağlantınızı veya reklam engelleyicinizi kontrol edin.");
+  } else {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+} catch (e) {
+  alert("Supabase Başlatma Hatası: " + e.message);
+}
 
 // KARA LİSTE (6 haneli kolay şifreler)
 const KARA_LISTE = ['123456','111111','000000','654321','123123','121212','112233','123321','111222','222333','123654','147258','159753','987654','999999','000111','123789','456123'];
@@ -120,11 +152,6 @@ function toast(msg, tip='hata') {
   t.classList.add('gorunur'); setTimeout(()=>t.classList.remove('gorunur'), 3000);
 }
 
-function ekranDegistir(id) {
-  document.querySelectorAll('.ekran-orta, .ekran').forEach(e => e.classList.remove('aktif'));
-  document.getElementById(id).classList.add('aktif');
-}
-
 // VARDIYA HESAPLAMA (09:00 - 09:00 Döngüsü)
 function vardiyaHesapla(tarih = new Date()) {
   const referans = new Date(2026, 8, 24); // 24 Eylül 2026 -> 2. Vardiya
@@ -134,9 +161,10 @@ function vardiyaHesapla(tarih = new Date()) {
   return (((fark + 1) % 3) + 3) % 3 + 1;
 }
 
-// AUTH
+// AUTH (Giriş)
 document.getElementById('girisForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (!supabase) return alert("Supabase yüklenmediği için giriş yapılamıyor.");
   const email = document.getElementById('girisEmail').value.trim();
   const sifre = document.getElementById('girisSifre').value;
   document.getElementById('girisHata').innerText = '';
@@ -145,8 +173,10 @@ document.getElementById('girisForm').addEventListener('submit', async (e) => {
   else oturumBaslat(data.user);
 });
 
+// AUTH (Kayıt)
 document.getElementById('kayitForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (!supabase) return alert("Supabase yüklenmediği için kayıt yapılamıyor.");
   const email = document.getElementById('kayitEmail').value.trim();
   const sifre = document.getElementById('kayitSifre').value;
   const hataEl = document.getElementById('kayitHata');
@@ -207,7 +237,6 @@ async function panelYukle() {
   
   document.getElementById('aktifIcapSayisi').innerText = aktifler ? aktifler.length : 0;
   
-  // Aktif İcap Listesi
   let aHtml = '';
   if (aktifler && aktifler.length > 0) {
     aktifler.forEach(a => {
@@ -217,7 +246,6 @@ async function panelYukle() {
   } else { aHtml = '<div style="font-size:12px;color:#979da3;text-align:center;">Şu an icapte personel yok.</div>'; }
   document.getElementById('aktifIcapListe').innerHTML = aHtml;
 
-  // Hazır İcapçılar
   const { data: hazirlar } = await supabase.from('hazir_icapcilar').select('*, er:er_personel_id(ad_soyad), sofor:sofor_personel_id(ad_soyad)').eq('durum', 'aktif').gte('bitis_zamani', new Date().toISOString());
   let hHtml = '';
   if (hazirlar && hazirlar.length > 0) {
@@ -227,7 +255,6 @@ async function panelYukle() {
   } else { hHtml = '<div style="font-size:12px;color:#979da3;">Aktif hazır icapçı ekibi bulunmuyor.</div>'; }
   document.getElementById('hazirIcapcilarKart').innerHTML = `<div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge" style="background:#eef3f7;color:#35618a;">🚨</div>Hazır İcapçı Ekibi</div>${hHtml}</div>`;
 
-  // Kişisel Bakiye
   const { data: icapGecmis } = await supabase.from('icap_gorevleri').select('toplam_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
   const { data: izinGecmis } = await supabase.from('icap_izin_talepleri').select('talep_edilen_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
   const toplam = icapGecmis ? icapGecmis.reduce((s,x)=>s+(x.toplam_dakika||0),0) : 0;
@@ -246,7 +273,6 @@ async function panelYukle() {
   rolIcerikCiz(aktifler, hazirlar);
 }
 
-// ROL BAZLI İÇERİK
 async function rolIcerikCiz(aktifler, hazirlar) {
   const el = document.getElementById('rolIcerik');
   const rol = mevcutPersonel.rol;
@@ -255,7 +281,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   const kendiAktif = aktifler?.find(a => a.personel_id === mevcutPersonel.id);
   
   if (kendiAktif) {
-    html += `<div class="kart" style="border-left:4px solid #2f7a52;"><div class="kart-baslik">🟢 İcap Göreviniz Devam Ediyor</div><p style="font-size:13px;">Başlama: ${new Date(kendiAktif.baslama_zamani).toLocaleTimeString('tr-TR')}</p><button class="btn btn-kirmizi" onclick="icapBitir('${kendiAktif.id}')">⏹ İcap Görevini Bitir</button></div>`;
+    html += `<div class="kart" style="border-left:4px solid #2f7a52;"><div class="kart-baslik">🟢 İcap Göreviniz Devam Ediyor</div><p style="font-size:13px;">Başlama: ${new Date(kendiAktif.baslama_zamani).toLocaleTimeString('tr-TR')}</p><button type="button" class="btn btn-kirmizi" onclick="icapBitir('${kendiAktif.id}')">⏹ İcap Görevini Bitir</button></div>`;
   } else {
     let baslatabilir = true;
     let uyari = "";
@@ -275,12 +301,12 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       <div class="kart-baslik"><div class="kart-baslik-simge">🚒</div>Yeni İcap Görevi</div>
       ${!baslatabilir ? `<div style="background:#fdecec;color:#a33a3a;padding:10px;border-radius:8px;font-size:12px;margin-bottom:10px;font-weight:bold;">⚠️ ${uyari}</div>` : ''}
       <textarea id="gorevAciklama" placeholder="İcap görev açıklaması..." ${!baslatabilir?'disabled':''}></textarea>
-      <button class="btn btn-primary" onclick="icapBaslat()" ${!baslatabilir?'disabled style="background:#ccc;"':''}>▶ İcap Görevini Başlat</button>
+      <button type="button" class="btn btn-primary" onclick="icapBaslat()" ${!baslatabilir?'disabled style="background:#ccc;"':''}>▶ İcap Görevini Başlat</button>
     </div>`;
   }
 
   if (!kendiAktif) {
-    html += `<div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge" style="background:#f1eef6;color:#6a5590;">📅</div>İcap İzni Kullan</div><button class="btn btn-mor" onclick="izinModalAc()">📅 İzin Talebi Oluştur</button></div>`;
+    html += `<div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge" style="background:#f1eef6;color:#6a5590;">📅</div>İcap İzni Kullan</div><button type="button" class="btn btn-mor" onclick="izinModalAc()">📅 İzin Talebi Oluştur</button></div>`;
   }
 
   if (['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol)) {
@@ -291,7 +317,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     let bHtml = '';
     if (bekleyenler && bekleyenler.length > 0) {
       bekleyenler.forEach(b => {
-        bHtml += `<div class="onay-item"><strong>${b.personel.ad_soyad}</strong> (${b.personel.rol.replace('_',' ')})<br><span style="font-size:11px;">Süre: ${Math.floor(b.toplam_dakika/60)}s ${b.toplam_dakika%60}dk</span><div class="onay-btnler"><button class="btn-success" onclick="onayla('${b.id}', 'icap')">✓ Onayla</button><button class="btn-danger" onclick="reddet('${b.id}', 'icap')">✕ Reddet</button></div></div>`;
+        bHtml += `<div class="onay-item"><strong>${b.personel.ad_soyad}</strong> (${b.personel.rol.replace('_',' ')})<br><span style="font-size:11px;">Süre: ${Math.floor(b.toplam_dakika/60)}s ${b.toplam_dakika%60}dk</span><div class="onay-btnler"><button type="button" class="btn-success" onclick="onayla('${b.id}', 'icap')">✓ Onayla</button><button type="button" class="btn-danger" onclick="reddet('${b.id}', 'icap')">✕ Reddet</button></div></div>`;
       });
     } else { bHtml = '<div style="font-size:12px;color:#979da3;">Onay bekleyen yok.</div>'; }
     html += `<div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge" style="background:#faf3e8;color:#b5721f;">⏳</div>Onay Bekleyen İcaplar</div>${bHtml}</div>`;
@@ -304,7 +330,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     let iHtml = '';
     if (izinler && izinler.length > 0) {
       izinler.forEach(b => {
-        iHtml += `<div class="onay-item"><strong>${b.personel.ad_soyad}</strong> - ${Math.floor(b.talep_edilen_dakika/60)}s ${b.talep_edilen_dakika%60}dk<br><span style="font-size:11px;">Tarih: ${b.izin_tarihi} ${b.eksi_bakiye_mi?'(Eksi Bakiye!)':''}</span><div class="onay-btnler"><button class="btn-success" onclick="onayla('${b.id}', 'izin')">✓ Onayla</button><button class="btn-danger" onclick="reddet('${b.id}', 'izin')">✕ Reddet</button></div></div>`;
+        iHtml += `<div class="onay-item"><strong>${b.personel.ad_soyad}</strong> - ${Math.floor(b.talep_edilen_dakika/60)}s ${b.talep_edilen_dakika%60}dk<br><span style="font-size:11px;">Tarih: ${b.izin_tarihi} ${b.eksi_bakiye_mi?'(Eksi Bakiye!)':''}</span><div class="onay-btnler"><button type="button" class="btn-success" onclick="onayla('${b.id}', 'izin')">✓ Onayla</button><button type="button" class="btn-danger" onclick="reddet('${b.id}', 'izin')">✕ Reddet</button></div></div>`;
       });
     } else { iHtml = '<div style="font-size:12px;color:#979da3;">Onay bekleyen izin talebi yok.</div>'; }
     html += `<div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge" style="background:#f1eef6;color:#6a5590;">📅</div>Onay Bekleyen İzinler</div>${iHtml}</div>`;
@@ -313,12 +339,12 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   if (rol === 'vardiya_cavusu') {
     html += `<div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge" style="background:#eef3f7;color:#35618a;">🚨</div>Hazır İcapçı Seçimi (08:50)</div>
       <p style="font-size:11px;color:#666;">Nöbetiniz bitmeden önce kendi vardiyanızdan 1 Er ve 1 Şoför seçin.</p>
-      <button class="btn btn-mavi" onclick="hazirIcapciModalAc()">Personel Seç</button>
+      <button type="button" class="btn btn-mavi" onclick="hazirIcapciModalAc()">Personel Seç</button>
     </div>`;
   }
 
   if (['grup_amiri', 'super_admin', 'vardiya_cavusu'].includes(rol)) {
-     html += `<div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge">📊</div>Raporlama</div><button class="btn btn-outline" style="border:1px solid #ccc;background:#fff;" onclick="raporCsvIndir()">⬇ Detaylı CSV İndir (Son 30 Gün)</button></div>`;
+     html += `<div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge">📊</div>Raporlama</div><button type="button" class="btn btn-outline" style="border:1px solid #ccc;background:#fff;" onclick="raporCsvIndir()">⬇ Detaylı CSV İndir (Son 30 Gün)</button></div>`;
   }
 
   el.innerHTML = html;
@@ -357,6 +383,7 @@ async function onayla(id, tip) {
   await supabase.from(tablo).update({ durum: 'onaylandi', onaylayan_id: mevcutPersonel.id, onay_zamani: new Date().toISOString() }).eq('id', id);
   toast("Onaylandı", "basari"); panelYukle();
 }
+
 async function reddet(id, tip) {
   const tablo = tip === 'icap' ? 'icap_gorevleri' : 'icap_izin_talepleri';
   const sebep = prompt("Red sebebi:");
@@ -372,8 +399,8 @@ function izinModalAc() {
     <div class="form-grup"><label>Dakika</label><input type="number" id="izinDakika" min="0" max="59" value="0"></div>
     <div class="form-grup"><label>Tarih</label><input type="date" id="izinTarih" value="${new Date().toISOString().split('T')[0]}"></div>
     <div class="form-grup"><label>Açıklama</label><input type="text" id="izinAciklama" placeholder="Neden izin kullanıyorsunuz?"></div>
-    <button class="btn btn-mor" onclick="izinTalepEt()">Talebi Gönder</button>
-    <button class="btn btn-link" onclick="document.getElementById('izinModal').remove()">İptal</button>
+    <button type="button" class="btn btn-mor" onclick="izinTalepEt()">Talebi Gönder</button>
+    <button type="button" class="btn btn-link" onclick="document.getElementById('izinModal').remove()">İptal</button>
   </div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
 }
@@ -416,8 +443,8 @@ async function hazirIcapciModalAc() {
     <p style="font-size:11px;color:#666;">48 saatlik istirahat dönemi için 1 Er ve 1 Şoför seçiniz.</p>
     <div class="form-grup"><label>İtfaiye Eri</label><select id="secEr">${erler.map(e=>`<option value="${e.id}">${e.ad_soyad}</option>`).join('')}</select></div>
     <div class="form-grup"><label>İtfaiye Şoförü</label><select id="secSofor">${soforler.map(s=>`<option value="${s.id}">${s.ad_soyad}</option>`).join('')}</select></div>
-    <button class="btn btn-primary" onclick="hazirKaydet()">Seçimi Onayla</button>
-    <button class="btn btn-link" onclick="document.getElementById('hazirModal').remove()">İptal</button>
+    <button type="button" class="btn btn-primary" onclick="hazirKaydet()">Seçimi Onayla</button>
+    <button type="button" class="btn btn-link" onclick="document.getElementById('hazirModal').remove()">İptal</button>
   </div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
 }
@@ -460,13 +487,13 @@ async function raporCsvIndir() {
   link.click();
 }
 
-// KEEP-ALIVE
-supabase.from('keepalive').select('id').limit(1).then(() => console.log("Keepalive pinged."));
-
-// BAŞLANGIÇ
-supabase.auth.getSession().then(({ data: { session } }) => {
-  if (session) oturumBaslat(session.user);
-});
+// BAŞLANGIÇ (Sadece Supabase varsa çalışır)
+if (supabase) {
+  supabase.from('keepalive').select('id').limit(1).then(() => console.log("Keepalive pinged."));
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session) oturumBaslat(session.user);
+  });
+}
 </script>
 </body>
 </html>
