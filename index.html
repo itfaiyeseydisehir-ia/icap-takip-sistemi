@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Seydişehir İtfaiyesi - İcap Takip</title>
 <link rel="manifest" href="manifest.json">
-<!-- Supabase Kütüphanesi -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Supabase Kütüphanesi (Unpkg üzerinden) -->
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <style>
   :root{--kirmizi:#9c2b2b;--kirmizi-koyu:#6f1d1d;--yesil:#2f7a52;--yesil-acik:#eef6f1;--mavi:#35618a;--mavi-acik:#eef3f7;--turuncu:#b5721f;--turuncu-acik:#faf3e8;--mor:#6a5590;--mor-acik:#f1eef6;--arka:#f4f5f6;--kart:#fff;--kenar:#e4e6e9;--metin:#23262b;--ikincil:#6b7178;--soluk:#979da3;--golge:0 2px 10px rgba(20,22,26,.05)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;padding:0;min-height:100%}
@@ -64,7 +64,6 @@
       <button type="submit" class="btn btn-primary">Giriş Yap</button>
       <div id="girisHata" class="hata-metin"></div>
     </form>
-    <!-- Butona type="button" eklendi ki formu yanlışlıkla göndermesin -->
     <button type="button" class="btn-link" onclick="ekranDegistir('ekranKayit')">İlk Kez Kayıt Ol / Şifre Sıfırla</button>
   </div>
 </div>
@@ -103,35 +102,30 @@
 
 <script>
 // ============================================================
-// HATA YAKALAYICI KALKAN (Debugger)
+// 1. TEST UYARISI (Sayfa yüklendiğinde çalışır)
 // ============================================================
+alert("Sistem başlatılıyor, lütfen bekleyin...");
+
+// 2. HATA YAKALAYICI
 window.onerror = function(msg, url, line, col, error) {
-  alert("SİSTEM HATASI YAKALANDI!\n\nMesaj: " + msg + "\nSatır: " + line + "\nKolon: " + col);
+  alert("SİSTEM HATASI: " + msg + "\nSatır: " + line);
   return false;
 };
 
-// ============================================================
-// EKRAN DEĞİŞTİRME FONKSİYONU (En üste alındı ki hata verse bile çalışsın)
-// ============================================================
+// 3. EKRAN DEĞİŞTİRME FONKSİYONU
 function ekranDegistir(id) {
-  try {
-    document.querySelectorAll('.ekran-orta, .ekran').forEach(e => e.classList.remove('aktif'));
-    document.getElementById(id).classList.add('aktif');
-  } catch (err) {
-    alert("Ekran değiştirme hatası: " + err.message);
-  }
+  document.querySelectorAll('.ekran-orta, .ekran').forEach(e => e.classList.remove('aktif'));
+  document.getElementById(id).classList.add('aktif');
 }
 
-// ============================================================
-// SUPABASE BAĞLANTISI (Güvenli Başlatma)
-// ============================================================
+// 4. SUPABASE BAĞLANTISI
 const SUPABASE_URL = "https://avrdeswpdubsonijbajt.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2cmRlc3dwZHVic29uaWpiYWp0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxMjMzODEsImV4cCI6MjEwODY5OTM4MX0.2bnmnhjk6g3fS9zEOda552GZpZ6TjY0889pd9DT6zl4";
 
 let supabase = null;
 try {
   if (typeof window.supabase === 'undefined') {
-    alert("KRİTİK HATA: Supabase kütüphanesi (CDN) yüklenemedi! İnternet bağlantınızı veya reklam engelleyicinizi kontrol edin.");
+    alert("KRİTİK HATA: Supabase kütüphanesi yüklenemedi! Bağlantınızı kontrol edin.");
   } else {
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
@@ -139,7 +133,6 @@ try {
   alert("Supabase Başlatma Hatası: " + e.message);
 }
 
-// KARA LİSTE (6 haneli kolay şifreler)
 const KARA_LISTE = ['123456','111111','000000','654321','123123','121212','112233','123321','111222','222333','123654','147258','159753','987654','999999','000111','123789','456123'];
 
 let mevcutPersonel = null;
@@ -152,16 +145,7 @@ function toast(msg, tip='hata') {
   t.classList.add('gorunur'); setTimeout(()=>t.classList.remove('gorunur'), 3000);
 }
 
-// VARDIYA HESAPLAMA (09:00 - 09:00 Döngüsü)
-function vardiyaHesapla(tarih = new Date()) {
-  const referans = new Date(2026, 8, 24); // 24 Eylül 2026 -> 2. Vardiya
-  const vGunu = new Date(tarih.getFullYear(), tarih.getMonth(), tarih.getDate());
-  if (tarih.getHours() < 9) vGunu.setDate(vGunu.getDate() - 1);
-  const fark = Math.round((vGunu - referans) / 86400000);
-  return (((fark + 1) % 3) + 3) % 3 + 1;
-}
-
-// AUTH (Giriş)
+// 5. GİRİŞ İŞLEMİ
 document.getElementById('girisForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!supabase) return alert("Supabase yüklenmediği için giriş yapılamıyor.");
@@ -173,7 +157,7 @@ document.getElementById('girisForm').addEventListener('submit', async (e) => {
   else oturumBaslat(data.user);
 });
 
-// AUTH (Kayıt)
+// 6. KAYIT İŞLEMİ
 document.getElementById('kayitForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!supabase) return alert("Supabase yüklenmediği için kayıt yapılamıyor.");
@@ -203,7 +187,6 @@ async function cikisYap() {
   ekranDegistir('ekranGiris');
 }
 
-// OTURUM BAŞLAT
 async function oturumBaslat(user) {
   const { data } = await supabase.from('personel').select('*').eq('auth_user_id', user.id).single();
   if (!data) { toast("Personel kaydınız bulunamadı!"); return cikisYap(); }
@@ -221,7 +204,6 @@ async function oturumBaslat(user) {
   realtimeBaslat();
 }
 
-// REALTIME
 function realtimeBaslat() {
   if (realtimeKanal) supabase.removeChannel(realtimeKanal);
   realtimeKanal = supabase.channel('icap-degisim')
@@ -230,7 +212,6 @@ function realtimeBaslat() {
     .subscribe();
 }
 
-// PANEL YÜKLEME
 async function panelYukle() {
   if (!mevcutPersonel) return;
   const { data: aktifler } = await supabase.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol)').eq('durum', 'aktif').order('baslama_zamani', { ascending: true });
@@ -487,7 +468,6 @@ async function raporCsvIndir() {
   link.click();
 }
 
-// BAŞLANGIÇ (Sadece Supabase varsa çalışır)
 if (supabase) {
   supabase.from('keepalive').select('id').limit(1).then(() => console.log("Keepalive pinged."));
   supabase.auth.getSession().then(({ data: { session } }) => {
