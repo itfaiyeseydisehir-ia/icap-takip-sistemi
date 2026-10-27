@@ -1,8 +1,20 @@
 <!DOCTYPE html>
 <html>
-<head><title>Test</title></head>
-<body style="text-align:center; padding-top:50px;">
-  <h1>Sistem Testi</h1>
-  <button onclick="alert('Harika! JavaScript Çalışıyor.')" style="padding:20px; font-size:20px;">Bana Tıkla</button>
+<head>
+  <!-- Supabase Kütüphanesini Yükleme Testi -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body style="text-align:center; padding-top:50px; font-family:sans-serif;">
+  <h1>Hata Tespit Testi</h1>
+  
+  <button onclick="alert('Harika! Temel JavaScript Çalışıyor.')" style="padding:15px; font-size:16px; margin-bottom:20px; background:#4CAF50; color:white; border:none; border-radius:8px;">
+    Test 1: Sadece JS Çalışıyor mu?
+  </button>
+  
+  <br>
+  
+  <button onclick="alert('Kütüphane Durumu: ' + (typeof window.supabase !== 'undefined'))" style="padding:15px; font-size:16px; background:#2196F3; color:white; border:none; border-radius:8px;">
+    Test 2: Supabase Kütüphanesi Yüklendi mi?
+  </button>
 </body>
 </html>
