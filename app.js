@@ -1,5 +1,5 @@
 // ============================================================
-// AŞAMA 3: TAM SİSTEM (PANEL, İCAP, ONAY, HAZIR İCAPÇI)
+// AŞAMA 4: GELİŞMİŞ RAPORLAMA VE HAZIR İCAPÇI YETKİLERİ
 // ============================================================
 
 function ekranDegistir(id) {
@@ -213,17 +213,26 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     html += `<div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge" style="background:#f1eef6;color:#6a5590;">📅</div>Onay Bekleyen İzinler</div>${iHtml}</div>`;
   }
 
-  // 4. Hazır İcapçı Seçimi (Çavuş)
-  if (rol === 'vardiya_cavusu') {
+  // 4. Hazır İcapçı Seçimi (Çavuş, Amiri ve Admin)
+  if (['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol)) {
     html += `<div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge" style="background:#eef3f7;color:#35618a;">🚨</div>Hazır İcapçı Seçimi</div>
-      <p style="font-size:11px;color:#666;">Nöbetiniz bitmeden önce kendi vardiyanızdan 1 Er ve 1 Şoför seçin.</p>
+      <p style="font-size:11px;color:#666;">İstirahat dönemi için 1 Er ve 1 Şoför seçin.</p>
       <button type="button" class="btn btn-mavi" onclick="hazirIcapciModalAc()">Personel Seç</button>
     </div>`;
   }
 
   // 5. Rapor İndirme
   if (['grup_amiri', 'super_admin', 'vardiya_cavusu'].includes(rol)) {
-     html += `<div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge">📊</div>Raporlama</div><button type="button" class="btn btn-outline" style="border:1px solid #ccc;background:#fff;" onclick="raporCsvIndir()">⬇ Detaylı CSV İndir (Son 30 Gün)</button></div>`;
+    const bugun = new Date().toISOString().split('T')[0];
+    const otuzGunOnce = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    html += `<div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge">📊</div>Raporlama</div>
+      <div style="display:flex; gap:10px; margin-bottom:10px;">
+        <div style="flex:1;"><label style="font-size:11px;">Başlangıç</label><input type="date" id="raporBaslangic" value="${otuzGunOnce}" style="width:100%; padding:8px; border-radius:6px; border:1px solid #ccc;"></div>
+        <div style="flex:1;"><label style="font-size:11px;">Bitiş</label><input type="date" id="raporBitis" value="${bugun}" style="width:100%; padding:8px; border-radius:6px; border:1px solid #ccc;"></div>
+      </div>
+      <button type="button" class="btn btn-outline" style="border:1px solid #ccc;background:#fff;" onclick="raporCsvIndir()">⬇ Detaylı CSV İndir</button>
+    </div>`;
   }
 
   el.innerHTML = html;
@@ -259,7 +268,7 @@ async function reddet(id, tip) {
   toast("Reddedildi");
 }
 
-// --- MODALLAR (İZİN, HAZIR İCAPÇI) ---
+// --- MODALLAR ---
 function izinModalAc() {
   let html = `<div class="modal aktif" id="izinModal"><div class="modal-content"><h3 style="margin-top:0;color:#6a5590;">İzin Talebi</h3><div class="form-grup"><label>Süre (Saat)</label><input type="number" id="izinSaat" min="0" value="1"></div><div class="form-grup"><label>Dakika</label><input type="number" id="izinDakika" min="0" max="59" value="0"></div><div class="form-grup"><label>Tarih</label><input type="date" id="izinTarih" value="${new Date().toISOString().split('T')[0]}"></div><div class="form-grup"><label>Açıklama</label><input type="text" id="izinAciklama" placeholder="Neden izin kullanıyorsunuz?"></div><button type="button" class="btn btn-mor" onclick="izinTalepEt()">Talebi Gönder</button><button type="button" class="btn btn-link" onclick="document.getElementById('izinModal').remove()">İptal</button></div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
@@ -283,31 +292,106 @@ async function izinTalepEt() {
 }
 
 async function hazirIcapciModalAc() {
-  const { data: personeller } = await sb.from('personel').select('*').eq('vardiya', mevcutPersonel.vardiya);
+  let vardiyaSecimiHtml = '';
+  // Eğer kullanıcı çavuş değilse (admin veya amiri ise) vardiya seçimi sun
+  if (mevcutPersonel.rol !== 'vardiya_cavusu') {
+    vardiyaSecimiHtml = `
+      <div class="form-grup">
+        <label>Hangi Vardiya İçin Seçim Yapıyorsunuz?</label>
+        <select id="secVardiya" onchange="hazirPersonelleriGetir()">
+          <option value="1">1. Vardiya</option>
+          <option value="2">2. Vardiya</option>
+          <option value="3">3. Vardiya</option>
+        </select>
+      </div>
+    `;
+  } else {
+    vardiyaSecimiHtml = `<input type="hidden" id="secVardiya" value="${mevcutPersonel.vardiya}">`;
+  }
+
+  let html = `<div class="modal aktif" id="hazirModal"><div class="modal-content">
+    <h3 style="margin-top:0;">Hazır İcapçı Seçimi</h3>
+    <p style="font-size:11px;color:#666;">48 saatlik istirahat dönemi için 1 Er ve 1 Şoför seçiniz.</p>
+    ${vardiyaSecimiHtml}
+    <div id="hazirPersonelAlan"></div>
+    <button type="button" class="btn btn-primary" onclick="hazirKaydet()">Seçimi Onayla</button>
+    <button type="button" class="btn btn-link" onclick="document.getElementById('hazirModal').remove()">İptal</button>
+  </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  
+  // Varsayılan olarak çavuşun kendi vardiyası veya admin için 1. vardiyayı yükle
+  hazirPersonelleriGetir();
+}
+
+async function hazirPersonelleriGetir() {
+  const vardiya = parseInt(document.getElementById('secVardiya').value);
+  const { data: personeller } = await sb.from('personel').select('*').eq('vardiya', vardiya);
   const erler = personeller.filter(p => p.rol === 'itfaiye_eri');
   const soforler = personeller.filter(p => p.rol === 'itfaiye_soforu');
-  let html = `<div class="modal aktif" id="hazirModal"><div class="modal-content"><h3 style="margin-top:0;">Hazır İcapçı Seçimi (${mevcutPersonel.vardiya}. Vardiya)</h3><p style="font-size:11px;color:#666;">48 saatlik istirahat dönemi için 1 Er ve 1 Şoför seçiniz.</p><div class="form-grup"><label>İtfaiye Eri</label><select id="secEr">${erler.map(e=>`<option value="${e.id}">${e.ad_soyad}</option>`).join('')}</select></div><div class="form-grup"><label>İtfaiye Şoförü</label><select id="secSofor">${soforler.map(s=>`<option value="${s.id}">${s.ad_soyad}</option>`).join('')}</select></div><button type="button" class="btn btn-primary" onclick="hazirKaydet()">Seçimi Onayla</button><button type="button" class="btn btn-link" onclick="document.getElementById('hazirModal').remove()">İptal</button></div></div>`;
-  document.body.insertAdjacentHTML('beforeend', html);
+  
+  document.getElementById('hazirPersonelAlan').innerHTML = `
+    <div class="form-grup"><label>İtfaiye Eri</label><select id="secEr">${erler.length ? erler.map(e=>`<option value="${e.id}">${e.ad_soyad}</option>`).join('') : '<option value="">Er bulunamadı</option>'}</select></div>
+    <div class="form-grup"><label>İtfaiye Şoförü</label><select id="secSofor">${soforler.length ? soforler.map(s=>`<option value="${s.id}">${s.ad_soyad}</option>`).join('') : '<option value="">Şoför bulunamadı</option>'}</select></div>
+  `;
 }
 
 async function hazirKaydet() {
+  const vardiya = parseInt(document.getElementById('secVardiya').value);
   const erId = document.getElementById('secEr').value;
   const soforId = document.getElementById('secSofor').value;
-  const simdi = new Date(); const bitis = new Date(simdi.getTime() + (48 * 60 * 60 * 1000));
-  await sb.from('hazir_icapcilar').insert([{ vardiya: mevcutPersonel.vardiya, er_personel_id: erId, sofor_personel_id: soforId, baslangic_zamani: simdi.toISOString(), bitis_zamani: bitis.toISOString(), secen_cavus_id: mevcutPersonel.id }]);
+  
+  if(!erId || !soforId) return toast("Lütfen personel seçin.");
+  
+  const simdi = new Date(); 
+  const bitis = new Date(simdi.getTime() + (48 * 60 * 60 * 1000));
+  
+  await sb.from('hazir_icapcilar').insert([{ 
+    vardiya: vardiya, 
+    er_personel_id: erId, 
+    sofor_personel_id: soforId, 
+    baslangic_zamani: simdi.toISOString(), 
+    bitis_zamani: bitis.toISOString(), 
+    secen_cavus_id: mevcutPersonel.id 
+  }]);
+  
   document.getElementById('hazirModal').remove();
   toast("Hazır icapçılar belirlendi.", "basari");
 }
 
-// --- CSV RAPOR ---
+// --- CSV RAPOR (Gelişmiş) ---
 async function raporCsvIndir() {
-  const son30 = new Date(); son30.setDate(son30.getDate() - 30);
-  const { data: icaps } = await sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol)').eq('durum', 'onaylandi').gte('baslama_zamani', son30.toISOString());
-  if (!icaps || !icaps.length) return toast("Son 30 günde onaylanmış icap yok.");
-  let csv = "Personel,Rol,Baslangic,Bitis,Sure(Dakika)\n";
-  icaps.forEach(i => { csv += `"${i.personel.ad_soyad}","${i.personel.rol}","${new Date(i.baslama_zamani).toLocaleString('tr-TR')}","${new Date(i.bitis_zamani).toLocaleString('tr-TR')}",${i.toplam_dakika}\n`; });
+  const bas = document.getElementById('raporBaslangic').value;
+  const bit = document.getElementById('raporBitis').value;
+  
+  if(!bas || !bit) return toast("Lütfen tarih aralığı seçin.");
+  
+  const basISO = new Date(bas + "T00:00:00").toISOString();
+  const bitISO = new Date(bit + "T23:59:59").toISOString();
+
+  const { data: icaps } = await sb.from('icap_gorevleri')
+    .select('*, personel:personel_id(ad_soyad, rol)')
+    .eq('durum', 'onaylandi')
+    .gte('baslama_zamani', basISO)
+    .lte('baslama_zamani', bitISO);
+
+  if (!icaps || !icaps.length) return toast("Seçilen tarihlerde onaylanmış icap yok.");
+
+  let csv = "Personel,Rol,Gorev Aciklamasi,Baslangic,Bitis,Sure(Dakika)\n";
+  
+  icaps.forEach(i => {
+    const basTarih = new Date(i.baslama_zamani).toLocaleString('tr-TR');
+    const bitTarih = new Date(i.bitis_zamani).toLocaleString('tr-TR');
+    // Açıklama içindeki çift tırnakları temizle ve virgülleri korumak için tırnak içine al
+    const aciklama = (i.gorev_aciklamasi || "").replace(/"/g, '""');
+    
+    csv += `"${i.personel.ad_soyad}","${i.personel.rol}","${aciklama}","${basTarih}","${bitTarih}",${i.toplam_dakika}\n`;
+  });
+
   const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `icap_raporu_${new Date().toISOString().split('T')[0]}.csv`; link.click();
+  const link = document.createElement("a"); 
+  link.href = URL.createObjectURL(blob); 
+  link.download = `icap_raporu_${bas}_${bit}.csv`; 
+  link.click();
 }
 
 // Sayfa açılışında oturum kontrolü
