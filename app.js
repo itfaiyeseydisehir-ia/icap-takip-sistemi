@@ -1,5 +1,5 @@
 // ============================================================
-// AŞAMA 7: LOG DÜZELTMELERİ VE YEDEKLEME SİSTEMİ
+// SEYDİŞEHİR İTFAİYESİ - TAM SİSTEM (LOG, BAKİYE GEÇMİŞİ, YEDEKLEME)
 // ============================================================
 
 function ekranDegistir(id) {
@@ -30,7 +30,7 @@ function toast(msg, tip='hata') {
   t.classList.add('gorunur'); setTimeout(()=>t.classList.remove('gorunur'), 3000);
 }
 
-// --- LOG EKLEME FONKSİYONU (Hata Toleranslı) ---
+// --- YARDIMCI FONKSİYON: LOG EKLEME ---
 async function logEkle(islem, aciklama = "") {
   if (!mevcutPersonel) return;
   try {
@@ -76,7 +76,7 @@ document.getElementById('kayitForm').addEventListener('submit', async (e) => {
   if (loginData) oturumBaslat(loginData.user);
 });
 
-// --- OTURUM ---
+// --- OTURUM BAŞLATMA ---
 async function oturumBaslat(user) {
   const { data } = await sb.from('personel').select('*').eq('auth_user_id', user.id).single();
   if (!data) { alert("Personel kaydınız bulunamadı!"); return cikisYap(); }
@@ -110,7 +110,7 @@ function realtimeBaslat() {
     .subscribe();
 }
 
-// --- ANA PANEL ---
+// --- ANA PANEL YÜKLEME ---
 async function panelYukle() {
   if (!mevcutPersonel) return;
 
@@ -188,7 +188,7 @@ async function panelYukle() {
 
   rolIcerikCiz(aktifler, hazirlar);
 
-  // SİSTEM HAREKETLERİ (LOGLAR) ÇEKME
+  // SİSTEM HAREKETLERİ (LOGLAR)
   let logHtml = '';
   try {
     const { data: loglar } = await sb.from('log_kayitlari').select('*').order('ne_zaman', { ascending: false }).limit(10);
@@ -228,7 +228,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   if (rol === 'super_admin') {
     html += `<div class="kart" style="background:#23262b;color:#fff;">
       <div class="kart-baslik" style="color:#fff;"><div class="kart-baslik-simge" style="background:#444;">🛠️</div>Süper Admin Yönetim Paneli</div>
-      <p style="font-size:12px;opacity:0.8;margin-bottom:15px;">Personel ekleme, sistem ayarları ve log kayıtlarına buradan ulaşabilirsiniz.</p>
+      <p style="font-size:12px;opacity:0.8;margin-bottom:15px;">Personel ekleme, sistem ayarları ve yedek yönetimi.</p>
       <button type="button" class="btn btn-mavi" onclick="adminPaneliAc()">🚀 Yönetim Panelini Aç</button>
     </div>`;
   }
@@ -306,16 +306,12 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   el.innerHTML = html;
 }
 
-// --- İŞLEMLER (Loglamalar Await ile Düzeltildi) ---
+// --- İŞLEMLER ---
 async function icapBaslat() {
   const aciklama = document.getElementById('gorevAciklama').value;
   const { error } = await sb.from('icap_gorevleri').insert([{ personel_id: mevcutPersonel.id, vardiya: mevcutPersonel.vardiya, gorev_aciklamasi: aciklama, durum: 'aktif' }]);
-  
   if (error) toast("Hata: " + error.message); 
-  else { 
-    toast("İcap başlatıldı", "basari"); 
-    await logEkle("İcap Başlattı", aciklama);
-  }
+  else { toast("İcap başlatıldı", "basari"); await logEkle("İcap Başlattı", aciklama); }
 }
 
 async function icapBitir(id) {
@@ -323,14 +319,9 @@ async function icapBitir(id) {
   const { data } = await sb.from('icap_gorevleri').select('baslama_zamani').eq('id', id).single();
   const dk = Math.floor((new Date() - new Date(data.baslama_zamani)) / 60000);
   const otomatikOnay = ['grup_amiri', 'vardiya_cavusu', 'super_admin'].includes(mevcutPersonel.rol);
-  
   const { error } = await sb.from('icap_gorevleri').update({ bitis_zamani: new Date().toISOString(), toplam_dakika: dk, durum: otomatikOnay ? 'onaylandi' : 'onay_bekliyor', onaylayan_id: otomatikOnay ? mevcutPersonel.id : null, onay_zamani: otomatikOnay ? new Date().toISOString() : null }).eq('id', id);
-  
   if (error) toast("Hata: " + error.message); 
-  else { 
-    toast("İcap bitirildi", "basari"); 
-    await logEkle("İcabı Bitirdi", `Süre: ${dk} dk`);
-  }
+  else { toast("İcap bitirildi", "basari"); await logEkle("İcabı Bitirdi", `Süre: ${dk} dk`); }
 }
 
 async function onayla(id, tip) {
@@ -380,7 +371,6 @@ async function hazirIcapciModalAc() {
   } else {
     vardiyaSecimiHtml = `<input type="hidden" id="secVardiya" value="${mevcutPersonel.vardiya}">`;
   }
-
   let html = `<div class="modal aktif" id="hazirModal"><div class="modal-content"><h3 style="margin-top:0;">Hazır İcapçı Seçimi</h3><p style="font-size:11px;color:#666;">48 saatlik istirahat dönemi için 1 Er ve 1 Şoför seçiniz.</p>${vardiyaSecimiHtml}<div id="hazirPersonelAlan"></div><button type="button" class="btn btn-primary" onclick="hazirKaydet()">Seçimi Onayla</button><button type="button" class="btn btn-link" onclick="document.getElementById('hazirModal').remove()">İptal</button></div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
   hazirPersonelleriGetir();
@@ -409,19 +399,17 @@ async function hazirKaydet() {
   await logEkle("Hazır İcapçı Seçti", `${vardiya}. Vardiya`);
 }
 
-// --- SÜPER ADMİN PANELİ MODALI ---
+// --- SÜPER ADMİN PANELİ ---
 function adminPaneliAc() {
   let html = `<div class="modal aktif" id="adminModal" style="align-items:flex-start; padding-top:20px;"><div class="modal-content" style="max-width:800px; width:95%;">
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; padding-bottom:10px; margin-bottom:15px;">
       <h3 style="margin:0; color:#23262b;">🛠️ Süper Admin Yönetim Paneli</h3>
       <button type="button" class="btn btn-kirmizi" style="width:auto; padding:5px 15px; margin:0;" onclick="document.getElementById('adminModal').remove()">Kapat ✕</button>
     </div>
-
     <div style="display:flex; gap:10px; margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:10px;">
       <button type="button" class="btn btn-primary" onclick="adminTab('personel')" style="margin:0; width:auto;">👥 Personel Yönetimi</button>
       <button type="button" class="btn btn-mor" onclick="adminTab('ayarlar')" style="margin:0; width:auto;">⚙️ Sistem Ayarları</button>
     </div>
-
     <div id="adminIcerik"></div>
   </div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
@@ -479,7 +467,6 @@ async function adminTab(tab) {
         </div>
         <button type="button" class="btn btn-success" style="margin-top:10px; margin-bottom:0;" onclick="personelEkle()">➕ Personeli Kaydet</button>
       </div>
-      
       <div style="overflow-x:auto;">
         <table style="width:100%; border-collapse:collapse; font-size:13px;">
           <thead><tr style="background:#eee; text-align:left;">
@@ -492,7 +479,7 @@ async function adminTab(tab) {
   } 
   else if (tab === 'ayarlar') {
     el.innerHTML = `
-      <div style="background:#f8fafb; padding:20px; border-radius:10px; border:1px solid #eee;">
+      <div style="background:#f8fafb; padding:20px; border-radius:10px; border:1px solid #eee; margin-bottom:15px;">
         <h4 style="margin-top:0;">Sistem Ayarları</h4>
         <p style="font-size:12px; color:#666;">Otomasyonun kaçırdığı durumlarda aktif vardiyayı manuel değiştirebilirsiniz.</p>
         <div class="form-grup">
@@ -500,6 +487,12 @@ async function adminTab(tab) {
           <input type="number" id="ayarVardiya" value="${sistemAyar.aktif_vardiya}" min="1" max="3" style="max-width:100px;">
         </div>
         <button type="button" class="btn btn-primary" style="width:auto;" onclick="ayarKaydet()">Ayarları Güncelle</button>
+      </div>
+
+      <div style="background:#eef6f1; padding:20px; border-radius:10px; border:1px solid #c7ead5;">
+        <h4 style="margin-top:0; color:#2f7a52;">📦 Yedek Yönetimi</h4>
+        <p style="font-size:12px; color:#666;">Sistem her gece 22:00'de otomatik yedek alır. Dilerseniz en son yedeği buradan indirebilirsiniz.</p>
+        <button type="button" class="btn btn-success" style="width:auto;" onclick="sonYedegiIndir()">⬇ En Son Yedeği İndir</button>
       </div>
     `;
   }
@@ -512,44 +505,27 @@ async function personelEkle() {
   const vardiya = document.getElementById('addVardiya').value;
 
   if(!ad || !email) return toast("Lütfen tüm alanları doldurun.");
-  
   const { error } = await sb.from('personel').insert([{ 
-    ad_soyad: ad, 
-    email: email, 
-    rol: rol, 
-    vardiya: vardiya ? parseInt(vardiya) : null 
+    ad_soyad: ad, email: email, rol: rol, vardiya: vardiya ? parseInt(vardiya) : null 
   }]);
 
-  if(error) {
-    toast("Hata: " + error.message);
-  } else {
-    toast("Personel başarıyla eklendi.", "basari");
-    await logEkle("Personel Ekledi", ad);
-    adminTab('personel');
-  }
+  if(error) toast("Hata: " + error.message);
+  else { toast("Personel başarıyla eklendi.", "basari"); await logEkle("Personel Ekledi", ad); adminTab('personel'); }
 }
 
 async function personelSil(id) {
   if(!confirm("Bu personeli silmek istediğinize emin misiniz?")) return;
   const { error } = await sb.from('personel').delete().eq('id', id);
   if(error) toast("Hata: " + error.message);
-  else { 
-    toast("Personel silindi.", "basari"); 
-    adminTab('personel'); 
-  }
+  else { toast("Personel silindi.", "basari"); adminTab('personel'); }
 }
 
 async function ayarKaydet() {
   const yeniVardiya = parseInt(document.getElementById('ayarVardiya').value);
   if(![1,2,3].includes(yeniVardiya)) return toast("Vardiya 1, 2 veya 3 olabilir.");
-  
   const { error } = await sb.from('sistem_ayarlari').update({ aktif_vardiya: yeniVardiya }).eq('id', 1);
   if(error) toast("Hata: " + error.message);
-  else {
-    sistemAyar.aktif_vardiya = yeniVardiya;
-    toast("Sistem ayarları güncellendi.", "basari");
-    await logEkle("Vardiya Değiştirdi", `Yeni: ${yeniVardiya}. Vardiya`);
-  }
+  else { sistemAyar.aktif_vardiya = yeniVardiya; toast("Sistem ayarları güncellendi.", "basari"); await logEkle("Vardiya Değiştirdi", `Yeni: ${yeniVardiya}. Vardiya`); }
 }
 
 async function raporCsvIndir() {
@@ -571,47 +547,41 @@ async function raporCsvIndir() {
   const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `icap_raporu_${bas}_${bit}.csv`; link.click();
 }
 
-// --- VERİ YEDEKLEME FONKSİYONU ---
+// --- YEDEKLEME FONKSİYONLARI ---
 async function veriYedekle() {
-  toast("Yedek hazırlanıyor, lütfen bekleyin...", "basari");
+  toast("Yedek alınıyor, lütfen bekleyin...", "basari");
   try {
-    const [p, i, iz, h, l] = await Promise.all([
-      sb.from('personel').select('*'),
-      sb.from('icap_gorevleri').select('*'),
-      sb.from('icap_izin_talepleri').select('*'),
-      sb.from('hazir_icapcilar').select('*'),
-      sb.from('log_kayitlari').select('*')
-    ]);
-
-    const yedek = {
-      yedek_tarihi: new Date().toISOString(),
-      personel: p.data,
-      icap_gorevleri: i.data,
-      izin_talepleri: iz.data,
-      hazir_icapcilar: h.data,
-      log_kayitlari: l.data
-    };
-
-    const str = JSON.stringify(yedek, null, 2);
-    const blob = new Blob([str], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `itfaiye_yedek_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    // E-posta taslağını aç (Kullanıcı dosyayı ekleyip gönderecek)
-    const mailto = `mailto:itfaiye.seydisehir@gmail.com?subject=İcap Takip Sistemi Yedek&body=Merhaba, sistem yedeği indirilmiştir. Lütfen indirilen dosyayı bu e-postaya ekleyiniz.`;
-    
-    toast("Yedek indirildi. Lütfen açılan e-posta ekranına dosyayı ekleyip gönderin.", "basari");
-    setTimeout(() => { window.location.href = mailto; }, 1000);
-
+    const { error } = await sb.rpc('yedek_al');
+    if (error) throw error;
+    toast("Sistem başarıyla yedeklendi! (Supabase Bulut)", "basari");
+    await logEkle("Manuel Yedek Aldı", "Buluta kaydedildi");
   } catch (e) {
     toast("Yedekleme hatası: " + e.message);
   }
 }
 
+async function sonYedegiIndir() {
+  toast("Son yedek aranıyor...", "basari");
+  const { data, error } = await sb.from('yedekler').select('*').order('tarih', { ascending: false }).limit(1).single();
+  
+  if (error || !data) {
+    toast("Henüz kaydedilmiş bir yedek bulunamadı.");
+    return;
+  }
+
+  const str = JSON.stringify(data.veri, null, 2);
+  const blob = new Blob([str], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${data.dosya_adi}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  toast("Yedek dosyası indirildi.", "basari");
+}
+
+// Sayfa açılışında oturum kontrolü
 if (sb) { sb.auth.getSession().then(({ data: { session } }) => { if (session) oturumBaslat(session.user); }); }
