@@ -1,5 +1,5 @@
 // ============================================================
-// SEYDİŞEHİR İTFAİYESİ - TAM SİSTEM (LOG, BAKİYE GEÇMİŞİ, YEDEKLEME)
+// SEYDİŞEHİR İTFAİYESİ - TAM SİSTEM (LOG, BAKİYE, YEDEKLEME, GERİ YÜKLEME)
 // ============================================================
 
 function ekranDegistir(id) {
@@ -491,8 +491,16 @@ async function adminTab(tab) {
 
       <div style="background:#eef6f1; padding:20px; border-radius:10px; border:1px solid #c7ead5;">
         <h4 style="margin-top:0; color:#2f7a52;">📦 Yedek Yönetimi</h4>
-        <p style="font-size:12px; color:#666;">Sistem her gece 22:00'de otomatik yedek alır. Dilerseniz en son yedeği buradan indirebilirsiniz.</p>
-        <button type="button" class="btn btn-success" style="width:auto;" onclick="sonYedegiIndir()">⬇ En Son Yedeği İndir</button>
+        <p style="font-size:12px; color:#666;">Sistem her gece 22:00'de otomatik yedek alır. Dilerseniz en son yedeği buradan indirebilir veya daha önce aldığınız bir yedeği geri yükleyebilirsiniz.</p>
+        
+        <button type="button" class="btn btn-success" style="width:auto; margin-bottom:10px;" onclick="sonYedegiIndir()">⬇ En Son Yedeği İndir</button>
+        
+        <hr style="border:0; border-top:1px dashed #c7ead5; margin:15px 0;">
+        
+        <!-- YENİ EKLENEN GERİ YÜKLEME ALANI -->
+        <p style="font-size:12px; color:#a33a3a; font-weight:bold; margin-bottom:10px;">Dikkat: Geri yükleme işlemi mevcut verilerle çakışabilir.</p>
+        <input type="file" id="yedekGeriYukleInput" accept=".json" style="display:none;" onchange="yedekGeriYukleIslem(event)">
+        <button type="button" class="btn btn-kirmizi" style="width:auto;" onclick="yedekGeriYukleTetikle()">⬆ Bir Yedek Dosyası Seç ve Geri Yükle</button>
       </div>
     `;
   }
@@ -547,7 +555,7 @@ async function raporCsvIndir() {
   const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `icap_raporu_${bas}_${bit}.csv`; link.click();
 }
 
-// --- YEDEKLEME FONKSİYONLARI ---
+// --- YEDEKLEME VE GERİ YÜKLEME FONKSİYONLARI ---
 async function veriYedekle() {
   toast("Yedek alınıyor, lütfen bekleyin...", "basari");
   try {
@@ -581,6 +589,67 @@ async function sonYedegiIndir() {
   URL.revokeObjectURL(url);
   
   toast("Yedek dosyası indirildi.", "basari");
+}
+
+function yedekGeriYukleTetikle() {
+  document.getElementById('yedekGeriYukleInput').click();
+}
+
+async function yedekGeriYukleIslem(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (!confirm("DİKKAT! Mevcut verilerinizin üzerine yedekteki veriler yazılacaktır. İşleme devam etmek istiyor musunuz?")) {
+    event.target.value = '';
+    return;
+  }
+
+  toast("Yedek dosyası okunuyor...", "basari");
+  const reader = new FileReader();
+  
+  reader.onload = async (e) => {
+    try {
+      const icerik = JSON.parse(e.target.result);
+      
+      if (!icerik.personel || !icerik.icap_gorevleri) {
+        throw new Error("Geçersiz yedek dosyası formatı!");
+      }
+
+      toast("Personeller yükleniyor...", "basari");
+      await sb.from('personel').upsert(icerik.personel, { onConflict: 'id' });
+
+      toast("İcap kayıtları yükleniyor...", "basari");
+      await sb.from('icap_gorevleri').upsert(icerik.icap_gorevleri, { onConflict: 'id' });
+
+      toast("İzin talepleri yükleniyor...", "basari");
+      if (icerik.izin_talepleri) {
+        await sb.from('icap_izin_talepleri').upsert(icerik.izin_talepleri, { onConflict: 'id' });
+      }
+
+      toast("Hazır icapçılar yükleniyor...", "basari");
+      if (icerik.hazir_icapcilar) {
+        await sb.from('hazir_icapcilar').upsert(icerik.hazir_icapcilar, { onConflict: 'id' });
+      }
+
+      toast("Sistem hareketleri yükleniyor...", "basari");
+      if (icerik.log_kayitlari) {
+        try {
+          await sb.from('log_kayitlari').insert(icerik.log_kayitlari);
+        } catch (logErr) {
+          console.warn("Bazı loglar zaten mevcut olduğu için atlandı.");
+        }
+      }
+
+      toast("Sistem başarıyla geri yüklendi!", "basari");
+      setTimeout(() => window.location.reload(), 2000);
+      
+    } catch (err) {
+      alert("Geri Yükleme Hatası: " + err.message);
+    }
+    event.target.value = '';
+  };
+  
+  reader.readAsText(file);
 }
 
 // Sayfa açılışında oturum kontrolü
