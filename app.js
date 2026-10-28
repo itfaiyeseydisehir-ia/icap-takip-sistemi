@@ -128,11 +128,46 @@ async function panelYukle() {
   } else { hHtml = '<div style="font-size:12px;color:#979da3;">Aktif hazır icapçı ekibi bulunmuyor.</div>'; }
   document.getElementById('hazirIcapcilarKart').innerHTML = `<div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge" style="background:#eef3f7;color:#35618a;">🚨</div>Hazır İcapçı Ekibi</div>${hHtml}</div>`;
 
-  const { data: icapGecmis } = await sb.from('icap_gorevleri').select('toplam_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
-  const { data: izinGecmis } = await sb.from('icap_izin_talepleri').select('talep_edilen_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
+    // GEÇMİŞ DETAYLI BAKİYE HESAPLAMA
+  const { data: icapGecmis } = await sb.from('icap_gorevleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('baslama_zamani', { ascending: false });
+  const { data: izinGecmis } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('izin_tarihi', { ascending: false });
+  
   const toplam = icapGecmis ? icapGecmis.reduce((s,x)=>s+(x.toplam_dakika||0),0) : 0;
   const kullanilan = izinGecmis ? izinGecmis.reduce((s,x)=>s+(x.talep_edilen_dakika||0),0) : 0;
   const kalan = toplam - kullanilan;
+
+  let gecmisHtml = '';
+  const tumGecmis = [];
+  if(icapGecmis) icapGecmis.forEach(g => tumGecmis.push({tip: 'icap', tarih: g.baslama_zamani, data: g}));
+  if(izinGecmis) izinGecmis.forEach(g => tumGecmis.push({tip: 'izin', tarih: g.izin_tarihi + 'T00:00:00', data: g}));
+  tumGecmis.sort((a,b) => new Date(b.tarih) - new Date(a.tarih));
+
+  if (tumGecmis.length > 0) {
+    gecmisHtml += `<div style="margin-top:15px; border-top:1px solid #c9dbe7; padding-top:10px;">`;
+    gecmisHtml += `<div style="font-size:11px; font-weight:800; color:#2f5474; margin-bottom:8px;">GEÇMİŞ İCAP / İZİN DETAYLARI</div>`;
+    tumGecmis.forEach(x => {
+      if(x.tip === 'icap') {
+         gecmisHtml += `<div style="display:flex; justify-content:space-between; font-size:11px; padding:6px 0; border-bottom:1px dashed #e0e8f0;">
+            <div style="flex:1;">
+              <strong>İcap:</strong> ${new Date(x.data.baslama_zamani).toLocaleDateString('tr-TR')} <br>
+              <span style="color:#6b7178;">${new Date(x.data.baslama_zamani).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})} - ${new Date(x.data.bitis_zamani).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</span>
+              ${x.data.gorev_aciklamasi ? `<br><em style="color:#979da3;">${x.data.gorev_aciklamasi}</em>` : ''}
+            </div>
+            <div style="font-weight:800; color:#2f7a52; white-space:nowrap; margin-left:10px;">+${Math.floor(x.data.toplam_dakika/60)}s ${x.data.toplam_dakika%60}dk</div>
+         </div>`;
+      } else {
+         gecmisHtml += `<div style="display:flex; justify-content:space-between; font-size:11px; padding:6px 0; border-bottom:1px dashed #e0e8f0;">
+            <div style="flex:1;">
+              <strong>İzin:</strong> ${new Date(x.data.izin_tarihi).toLocaleDateString('tr-TR')} <br>
+              <span style="color:#6b7178;">${x.data.aciklama || 'İzin kullanımı'}</span>
+            </div>
+            <div style="font-weight:800; color:#a33a3a; white-space:nowrap; margin-left:10px;">-${Math.floor(x.data.talep_edilen_dakika/60)}s ${x.data.talep_edilen_dakika%60}dk</div>
+         </div>`;
+      }
+    });
+    gecmisHtml += `</div>`;
+  }
+
   document.getElementById('kisiselBakiyeKart').innerHTML = `
     <div class="bakiye-kart">
       <div class="kart-baslik" style="margin-bottom:8px;color:#2f5474;">💼 İcap / İzin Bakiyeniz</div>
@@ -141,6 +176,7 @@ async function panelYukle() {
         <div class="bakiye-item"><div class="bakiye-etiket">Kullanılan</div><div class="bakiye-deger">${Math.floor(kullanilan/60)}s ${kullanilan%60}dk</div></div>
         <div class="bakiye-item"><div class="bakiye-etiket">Kalan</div><div class="bakiye-deger" style="color:${kalan<0?'#a33a3a':'#2f7a52'}">${Math.floor(Math.abs(kalan)/60)}s ${Math.abs(kalan)%60}dk</div></div>
       </div>
+      <div style="max-height:200px; overflow-y:auto;">${gecmisHtml}</div>
     </div>`;
 
   rolIcerikCiz(aktifler, hazirlar);
