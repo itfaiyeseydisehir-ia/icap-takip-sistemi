@@ -3,202 +3,283 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f1823">
 <title>Seydişehir İtfaiyesi - İcap Takip</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <style>
-  :root{
-    --kirmizi:#E53935; --kirmizi-koyu:#C62828; --kirmizi-acik:#FFEBEE;
-    --lacivert:#1E293B; --lacivert-koyu:#0F172A; --lacivert-acik:#F1F5F9;
-    --yesil:#10B981; --yesil-acik:#ECFDF5;
-    --mavi:#3B82F6; --mavi-acik:#EFF6FF;
-    --turuncu:#F59E0B; --turuncu-acik:#FFFBEB;
-    --mor:#8B5CF6; --mor-acik:#F5F3FF;
-    --arka:#F8FAFC; --kart:#FFFFFF; --kenar:#E2E8F0;
-    --metin:#0F172A; --ikincil:#64748B;
-    --golge-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
-    --golge-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.025);
-    --golge-lg: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -4px rgba(0,0,0,0.025);
-  }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;padding:0;min-height:100%}
-  body{
-    font-family:'Plus Jakarta Sans', -apple-system, sans-serif;
-    background-color:var(--arka); color:var(--metin);
-    -webkit-font-smoothing:antialiased;
-  }
-  button,input,textarea,select{font-family:inherit}
-  button{-webkit-appearance:none;border:none;cursor:pointer}
-  
-  /* EKRANLAR */
-  .ekran{display:none}.ekran.aktif{display:block}
-  .ekran-orta{display:none;min-height:100vh;align-items:center;justify-content:center;padding:20px; background: linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%);}
-  .ekran-orta.aktif{display:flex}
-  
-  /* GİRİŞ KARTI */
-  .giris-kart{
-    background:var(--kart); border-radius:24px; padding:32px 28px; width:100%; max-width:420px;
-    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.8);
-  }
-  .giris-logo{
-    background: linear-gradient(135deg, var(--kirmizi-koyu), var(--kirmizi));
-    border-radius:20px; padding:28px; text-align:center; color:#fff;
-    margin-bottom:28px; box-shadow: 0 10px 20px -5px rgba(198,40,40,0.4);
-  }
-  .giris-logo h1{font-size:22px; font-weight:800; letter-spacing:-0.5px; margin:0 0 6px;}
-  .giris-logo p{font-size:13px; font-weight:500; opacity:0.9; margin:0;}
-  
-  /* FORMLAR */
-  .form-grup{margin-bottom:18px}
-  .form-grup label{display:block;font-size:13px;font-weight:700;color:var(--metin);margin-bottom:8px}
-  .form-grup input,.form-grup select{
-    width:100%; padding:14px 16px; border:1.5px solid var(--kenar);
-    background:#F8FAFC; border-radius:12px; font-size:15px; color:var(--metin);
-    outline:none; transition: all 0.2s; font-weight:600;
-  }
-  .form-grup input:focus{border-color:var(--kirmizi); background:#fff; box-shadow: 0 0 0 4px var(--kirmizi-acik);}
-  
-  /* BUTONLAR */
-  .btn{
-    width:100%; padding:15px 20px; border-radius:12px; font-size:15px; font-weight:700;
-    transition: all 0.2s; margin-bottom:10px; display: flex; align-items: center; justify-content: center; gap: 8px;
-  }
-  .btn:active{transform:scale(0.97)}
-  .btn-primary{background:var(--kirmizi); color:#fff; box-shadow: 0 4px 12px rgba(229,57,53,0.3);}
-  .btn-primary:hover{background:var(--kirmizi-koyu);}
-  .btn-success{background:var(--yesil); color:#fff; box-shadow: 0 4px 12px rgba(16,185,129,0.3);}
-  .btn-danger{background:#EF4444; color:#fff;}
-  .btn-mor{background:var(--mor); color:#fff;}
-  .btn-mavi{background:var(--mavi); color:#fff; box-shadow: 0 4px 12px rgba(59,130,246,0.3);}
-  .btn-outline{background:#fff; color:var(--metin); border:1.5px solid var(--kenar);}
-  .btn-link{background:none; color:var(--kirmizi); font-weight:700; font-size:14px; padding:10px 0; width:100%; text-align:center;}
-  
-  /* ÜST BAR */
-  .ust-bar{
-    background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px);
-    color:#fff; padding:16px 20px; display:flex; align-items:center; justify-content:space-between;
-    position:sticky; top:0; z-index:100; border-bottom: 1px solid rgba(255,255,255,0.1);
-  }
-  .ust-bar-baslik{font-size:16px; font-weight:800; letter-spacing:-0.3px}
-  .ust-bar-alt{font-size:11px; font-weight:600; color:var(--turuncu); margin-top:2px}
-  .kullanici-bilgi{font-size:13px; text-align:right}
-  .kullanici-bilgi strong{display:block; font-weight:700}
-  .kullanici-bilgi span{font-size:10px; font-weight:700; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; margin-top:4px; display:inline-block;}
-  .cikis-btn{background: rgba(255,255,255,0.1); color:#fff; padding:8px 14px; border-radius:8px; font-size:12px; font-weight:700;}
-  
-  /* ANA İÇERİK */
-  .ana-icerik{padding:20px 16px; max-width:768px; margin:0 auto; padding-bottom: 40px;}
-  
-  /* KARTLAR */
-  .kart{
-    background:var(--kart); border:1px solid var(--kenar); border-radius:20px;
-    padding:22px; margin-bottom:16px; box-shadow: var(--golge-md);
-  }
-  .kart-baslik{display:flex; align-items:center; gap:12px; font-size:16px; font-weight:800; color:var(--metin); margin-bottom:18px;}
-  .kart-baslik-simge{
-    width:38px; height:38px; border-radius:12px; background:var(--lacivert-acik);
-    display:flex; align-items:center; justify-content:center; font-size:18px;
-  }
-  
-  /* BÜYÜK İSTATİSTİK KARTI */
-  .stat-buyuk{
-    background: linear-gradient(135deg, var(--kirmizi-koyu), var(--kirmizi));
-    color:#fff; border-radius:24px; padding:32px 24px; text-align:center;
-    margin-bottom:20px; box-shadow: 0 15px 30px -5px rgba(198,40,40,0.4);
-    position:relative; overflow:hidden;
-  }
-  .stat-rakam{font-size:72px; font-weight:800; line-height:1; letter-spacing:-3px; position:relative; z-index:1}
-  .stat-etiket{font-size:13px; font-weight:700; opacity:0.9; margin-top:8px; text-transform:uppercase; letter-spacing:1.5px; position:relative; z-index:1}
-  
-  /* BAKİYE KARTI */
-  .bakiye-kart{
-    background: var(--kart); border: 1.5px solid var(--kenar); border-radius:20px; padding:20px;
-    margin-bottom:20px; box-shadow: var(--golge-sm); overflow: hidden;
-  }
-  .bakiye-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
-  .bakiye-item{
-    background:#F8FAFC; border-radius:14px; padding:16px 10px; text-align:center; border: 1px solid var(--kenar);
-  }
-  .bakiye-etiket{font-size:10px; font-weight:800; color:var(--ikincil); text-transform:uppercase; margin-bottom:6px}
-  .bakiye-deger{font-size:18px; font-weight:800; color:var(--metin)}
-  
-  /* MODERN TABLOLAR (Geçmiş Dökümü İçin) */
-  .modern-tablo-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--kenar); margin-top: 12px; }
-  .modern-tablo { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
-  .modern-tablo th { background: #F8FAFC; padding: 12px 16px; font-weight: 700; color: var(--ikincil); text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; border-bottom: 1px solid var(--kenar); }
-  .modern-tablo td { padding: 14px 16px; border-bottom: 1px solid var(--kenar); vertical-align: middle; }
-  .modern-tablo tr:last-child td { border-bottom: none; }
-  .modern-tablo tr:hover td { background: #F8FAFC; }
-  
-  /* ETİKETLER (Badge) */
-  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
-  .badge-yesil { background: var(--yesil-acik); color: var(--yesil); }
-  .badge-kirmizi { background: var(--kirmizi-acik); color: var(--kirmizi-koyu); }
-  .badge-turuncu { background: var(--turuncu-acik); color: var(--turuncu); }
-  
-  /* MODAL */
-  .modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;padding:16px}
-  .modal.aktif{display:flex;}
-  .modal-content{background:#fff; border-radius:24px; padding:24px; width:100%; max-width:500px; max-height:90vh; overflow-y:auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3);}
-  
-  /* TOAST */
-  #toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--lacivert-koyu); color:#fff; padding:14px 24px; border-radius:12px; font-size:14px; font-weight:700; opacity:0; transition:all 0.3s; z-index:9999; box-shadow: 0 10px 25px rgba(0,0,0,0.2);}
-  #toast.gorunur{opacity:1; transform:translateX(-50%) translateY(-10px);}
-  
-  @media(max-width:480px){ .stat-rakam{font-size:56px} .bakiye-grid{grid-template-columns:1fr} }
+:root{
+  --navy:#0f1823; --navy-2:#16222f; --navy-3:#1e2d3e;
+  --red:#c8102e; --red-dark:#9a0c23; --red-soft:#fdeceb;
+  --green:#12805c; --green-soft:#e6f5ef;
+  --blue:#1f5fa8; --blue-soft:#e8f0fa;
+  --amber:#b86e00; --amber-soft:#fdf3e1;
+  --violet:#5b4a9c; --violet-soft:#efecf8;
+  --bg:#eef1f5; --card:#ffffff; --line:#e3e8ee; --line-2:#eef1f5;
+  --text:#18202b; --text-2:#5b6675; --text-3:#8d97a5;
+  --r:14px; --shadow:0 1px 2px rgba(15,24,35,.04),0 4px 16px rgba(15,24,35,.06);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;min-height:100%}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;font-size:14px}
+button,input,textarea,select{font-family:inherit}
+button{-webkit-appearance:none;border:none;cursor:pointer}
+.ekran{display:none}.ekran.aktif{display:block}
+.ekran-orta{display:none;min-height:100vh}.ekran-orta.aktif{display:flex}
+
+/* ---------- GİRİŞ ---------- */
+.auth{width:100%;display:flex;min-height:100vh}
+.auth-brand{flex:1.1;background:radial-gradient(1200px 600px at 0% 0%,#26394f 0%,var(--navy) 60%);color:#fff;padding:56px;display:none;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+.auth-brand::after{content:"";position:absolute;right:-120px;bottom:-120px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(200,16,46,.45),transparent 70%)}
+.brand-mark{display:flex;align-items:center;gap:12px;font-weight:700;font-size:15px;letter-spacing:.3px}
+.brand-logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--red),var(--red-dark));display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(200,16,46,.45)}
+.brand-logo svg{width:22px;height:22px;fill:#fff}
+.auth-brand h2{font-size:34px;line-height:1.2;margin:0 0 12px;font-weight:800;max-width:420px}
+.auth-brand p{color:#a9b6c6;margin:0;max-width:400px;line-height:1.6}
+.auth-brand small{color:#6f8096;font-size:12px;position:relative;z-index:1}
+.auth-panel{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg)}
+.giris-kart{background:#fff;border-radius:20px;padding:32px 28px;width:100%;max-width:410px;box-shadow:0 20px 50px rgba(15,24,35,.12);border:1px solid var(--line)}
+.giris-logo{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.giris-logo .brand-logo{width:46px;height:46px}
+.giris-logo h1{font-size:18px;margin:0;font-weight:800;letter-spacing:-.2px}
+.giris-logo p{font-size:12px;color:var(--text-2);margin:2px 0 0}
+@media(min-width:900px){.auth-brand{display:flex}}
+
+/* ---------- FORM ---------- */
+.form-grup{margin-bottom:14px}
+.form-grup label,label.etiket{display:block;font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.form-grup input,.form-grup select,.input,textarea{width:100%;padding:12px 14px;border:1px solid #d5dce5;background:#fff;border-radius:10px;font-size:14px;color:var(--text);outline:none;transition:.15s}
+.form-grup input:focus,.form-grup select:focus,.input:focus,textarea:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(200,16,46,.12)}
+textarea{min-height:76px;margin-bottom:12px;resize:vertical}
+.hata-metin{color:var(--red);font-size:12px;text-align:center;margin-top:10px;min-height:16px;font-weight:600}
+
+/* ---------- BUTONLAR ---------- */
+.btn{width:100%;padding:12px 16px;border-radius:10px;font-size:13.5px;font-weight:700;transition:.15s;margin-bottom:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;letter-spacing:.1px}
+.btn:active{transform:scale(.98)}
+.btn:disabled{background:#d9dee5!important;color:#8d97a5!important;cursor:not-allowed;box-shadow:none!important}
+.btn-primary{background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;box-shadow:0 4px 12px rgba(200,16,46,.28)}
+.btn-primary:hover{filter:brightness(1.07)}
+.btn-kirmizi{background:var(--red);color:#fff}
+.btn-mor{background:var(--violet);color:#fff}
+.btn-mavi{background:var(--blue);color:#fff}
+.btn-success{background:var(--green);color:#fff}
+.btn-danger{background:#fff;color:var(--red);border:1px solid #f0c4c9}
+.btn-outline{background:#fff;color:var(--text);border:1px solid #d5dce5}
+.btn-outline:hover{background:#f6f8fb}
+.btn-link{background:none;color:var(--text-2);font-weight:600;font-size:13px;padding:8px 0;width:100%}
+.btn-link:hover{color:var(--red)}
+.btn-sm{width:auto;padding:8px 14px;font-size:12px;margin:0}
+.btn-ghost-dark{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.18);width:auto;margin:0;padding:9px 14px;font-size:12px}
+.btn-ghost-dark:hover{background:rgba(255,255,255,.18)}
+
+/* ---------- ÜST BAR ---------- */
+.ust-bar{background:var(--navy);color:#fff;padding:0 22px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;border-bottom:3px solid var(--red);box-shadow:0 4px 18px rgba(15,24,35,.25)}
+.ust-bar-sol{display:flex;align-items:center;gap:12px}
+.ust-bar-sol .brand-logo{width:38px;height:38px;border-radius:10px}
+.ust-bar-baslik{font-size:14px;font-weight:800;letter-spacing:.2px}
+.ust-bar-alt{font-size:11px;color:#9fb0c3;margin-top:1px}
+.ust-bar-sag{display:flex;align-items:center;gap:14px}
+.kullanici-bilgi{text-align:right;line-height:1.25}
+.kullanici-bilgi strong{display:block;font-size:13px;font-weight:700}
+.kullanici-bilgi span{font-size:10px;color:#9fb0c3;letter-spacing:.6px;font-weight:600}
+.avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#2d4157,#1b2a3a);border:1px solid #3a526b;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+
+/* ---------- DÜZEN ---------- */
+.ana-icerik{padding:20px 16px 40px;max-width:1180px;margin:0 auto}
+.dashboard{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:960px){.dashboard{grid-template-columns:1.55fr 1fr;align-items:start}}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.kart{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow)}
+.kart-baslik{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px}
+.kart-baslik-simge{width:32px;height:32px;border-radius:9px;background:#f1f4f8;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.kart-baslik .sag{margin-left:auto}
+.alt-not{font-size:12px;color:var(--text-2);margin:-6px 0 12px;line-height:1.5}
+
+/* ---------- KPI ---------- */
+.kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(min-width:700px){.kpi-grid{grid-template-columns:repeat(4,1fr)}}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c,var(--red))}
+.kpi-etiket{font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.6px}
+.kpi-deger{font-size:26px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:var(--text)}
+.kpi-alt{font-size:11px;color:var(--text-2);margin-top:2px}
+.kpi.hero{background:linear-gradient(135deg,var(--navy-2),var(--navy-3));border:none}
+.kpi.hero .kpi-etiket{color:#9fb0c3}.kpi.hero .kpi-deger{color:#fff;font-size:34px}.kpi.hero .kpi-alt{color:#9fb0c3}
+.canli{display:inline-block;width:8px;height:8px;border-radius:50%;background:#2ee59d;margin-right:6px;box-shadow:0 0 0 0 rgba(46,229,157,.6);animation:nabiz 1.8s infinite}
+@keyframes nabiz{70%{box-shadow:0 0 0 8px rgba(46,229,157,0)}100%{box-shadow:0 0 0 0 rgba(46,229,157,0)}}
+
+/* ---------- TABLO ---------- */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:420px}
+.tbl thead th{background:#f6f8fb;color:var(--text-2);font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl tbody td{padding:11px 12px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+.tbl tbody tr:last-child td{border-bottom:none}
+.tbl tbody tr:hover{background:#fafbfd}
+.tbl .sag{text-align:right}
+.hucre-isim{font-weight:600}
+.hucre-alt{font-size:11px;color:var(--text-3);margin-top:2px}
+.scroll{max-height:300px;overflow-y:auto}
+.bos{text-align:center;color:var(--text-3);font-size:13px;padding:22px 10px}
+
+/* ---------- ROZETLER ---------- */
+.rozet{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
+.r-yesil{background:var(--green-soft);color:var(--green)}
+.r-mavi{background:var(--blue-soft);color:var(--blue)}
+.r-turuncu{background:var(--amber-soft);color:var(--amber)}
+.r-kirmizi{background:var(--red-soft);color:var(--red)}
+.r-mor{background:var(--violet-soft);color:var(--violet)}
+.r-gri{background:#eef1f5;color:var(--text-2)}
+.artı{color:var(--green);font-weight:700;white-space:nowrap}.eksi{color:var(--red);font-weight:700;white-space:nowrap}
+
+/* ---------- BAKİYE ---------- */
+.bakiye-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.bakiye-item{background:#f6f8fb;border:1px solid var(--line);border-radius:12px;padding:12px 8px;text-align:center}
+.bakiye-etiket{font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px}
+.bakiye-deger{font-size:16px;font-weight:800;margin-top:4px}
+
+/* ---------- ONAY ---------- */
+.onay-item{background:#fff;border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.onay-item:last-child{margin-bottom:0}
+.onay-ust{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.onay-btnler{display:flex;gap:8px;margin-top:12px}
+.onay-btnler button{flex:1;margin:0;padding:9px;font-size:12px;width:auto}
+.uyari{background:var(--red-soft);color:var(--red);border:1px solid #f4c7cc;padding:10px 12px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:12px;display:flex;gap:8px}
+.ekip{display:flex;align-items:center;gap:12px;background:var(--blue-soft);border:1px solid #cfe0f3;border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.ekip:last-child{margin-bottom:0}
+.ekip b{font-size:13px}.ekip small{display:block;color:var(--text-2);margin-top:2px;font-size:12px}
+.ekip-no{width:34px;height:34px;border-radius:10px;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0}
+.admin-kart{background:linear-gradient(135deg,var(--navy-2),var(--navy-3));color:#fff;border:none}
+.admin-kart .kart-baslik{color:#fff}.admin-kart .kart-baslik-simge{background:rgba(255,255,255,.12)}
+.admin-kart p{color:#a9b6c6;font-size:12px;margin:0 0 14px;line-height:1.5}
+.gorev-kart{border-left:4px solid var(--green)}
+
+/* ---------- LOG ---------- */
+.log-item{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--line-2);font-size:12.5px}
+.log-item:last-child{border-bottom:none}
+.log-nokta{width:9px;height:9px;border-radius:50%;background:var(--red);margin-top:5px;flex-shrink:0}
+.log-zaman{color:var(--text-3);font-size:11px;font-weight:600}
+.log-islem{color:var(--blue);font-weight:600}
+
+/* ---------- MODAL ---------- */
+.modal{display:none;position:fixed;inset:0;background:rgba(10,16,24,.65);backdrop-filter:blur(3px);z-index:1000;align-items:center;justify-content:center;padding:14px}
+.modal.aktif{display:flex}
+.modal-content{background:#fff;border-radius:18px;padding:22px;width:100%;max-width:460px;max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.modal-content h3{margin:0 0 14px;font-size:17px;font-weight:800}
+.modal-baslik{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:16px}
+.modal-baslik h3{margin:0}
+.sekmeler{display:flex;gap:6px;background:#f1f4f8;padding:4px;border-radius:12px;margin-bottom:18px;width:fit-content}
+.sekme{background:none;color:var(--text-2);padding:9px 16px;border-radius:9px;font-weight:700;font-size:13px}
+.sekme.aktif{background:#fff;color:var(--text);box-shadow:0 1px 4px rgba(15,24,35,.12)}
+.form-satir{display:grid;grid-template-columns:1fr;gap:0 12px}
+@media(min-width:560px){.form-satir{grid-template-columns:1fr 1fr}}
+.panel-kutu{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.panel-kutu h4{margin:0 0 6px;font-size:14px}
+.sil-btn{background:none;color:var(--red);padding:6px 8px;border-radius:8px;font-size:15px}
+.sil-btn:hover{background:var(--red-soft)}
+
+/* ---------- TOAST ---------- */
+#toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,20px);background:#333;color:#fff;padding:12px 20px;border-radius:12px;opacity:0;transition:.3s;z-index:9999;font-weight:600;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.3);max-width:90%;pointer-events:none}
+#toast.gorunur{opacity:1;transform:translate(-50%,0)}
+
+@media(max-width:560px){
+  .kullanici-bilgi{display:none}
+  .ust-bar{padding:0 14px}
+  .bakiye-grid{grid-template-columns:1fr}
+  .bakiye-item{display:flex;justify-content:space-between;align-items:center;padding:10px 14px}
+  .bakiye-deger{margin:0}
+}
 </style>
 </head>
 <body>
 <div id="toast"></div>
 
+<!-- GİRİŞ -->
 <div id="ekranGiris" class="ekran-orta aktif">
-  <div class="giris-kart">
-    <div class="giris-logo"><h1>Seydişehir İtfaiyesi</h1><p>İcap Takip Sistemi</p></div>
-    <form id="girisForm">
-      <div class="form-grup"><label>E-posta Adresiniz</label><input id="girisEmail" type="email" required></div>
-      <div class="form-grup"><label>Şifre (6 Haneli PIN)</label><input id="girisSifre" type="password" maxlength="6" required inputmode="numeric" pattern="\d*"></div>
-      <button type="submit" class="btn btn-primary" style="margin-top:10px;">Giriş Yap</button>
-      <div id="girisHata" class="hata-metin" style="color:red; text-align:center; font-size:12px; margin-top:10px; font-weight:bold;"></div>
-    </form>
-    <button type="button" class="btn-link" onclick="ekranDegistir('ekranKayit')">İlk Kez Kayıt Ol / Şifre Sıfırla</button>
+  <div class="auth">
+    <div class="auth-brand">
+      <div class="brand-mark"><div class="brand-logo"><svg viewBox="0 0 24 24"><path d="M12 2c1 3.5 4.5 5.5 4.5 9.5a4.5 4.5 0 0 1-9 0c0-1.6.7-2.8 1.5-3.8.3 1.3 1 2 1.7 2.3C10.2 7 10.8 4 12 2zm0 20a7 7 0 0 1-7-7c0-2 .8-3.600 1.800-4.900.1 4.700 3 6.400 5.200 6.400s4.400-1.700 4.800-4.200c.8 1.200 1.200 2.600 1.200 4.200a7 7 0 0 1-6 7z"/></svg></div>SEYDİŞEHİR BELEDİYESİ İTFAİYE MÜDÜRLÜĞÜ</div>
+      <div><h2>İcap ve vardiya takibi, tek ekranda.</h2><p>Görev süreleri, izin bakiyeleri ve onay süreçleri anlık olarak yönetilir.</p></div>
+      <small>© Seydişehir İtfaiyesi · İcap Takip Sistemi</small>
+    </div>
+    <div class="auth-panel">
+      <div class="giris-kart">
+        <div class="giris-logo"><div class="brand-logo"><svg viewBox="0 0 24 24"><path d="M12 2c1 3.5 4.5 5.5 4.5 9.5a4.5 4.5 0 0 1-9 0c0-1.6.7-2.8 1.5-3.8.3 1.3 1 2 1.7 2.3C10.2 7 10.8 4 12 2zm0 20a7 7 0 0 1-7-7c0-2 .8-3.600 1.800-4.900.1 4.700 3 6.400 5.200 6.400s4.400-1.700 4.800-4.200c.8 1.200 1.200 2.600 1.200 4.200a7 7 0 0 1-6 7z"/></svg></div><div><h1>Personel Girişi</h1><p>İcap Takip Sistemi</p></div></div>
+        <form id="girisForm">
+          <div class="form-grup"><label>E-posta</label><input id="girisEmail" type="email" required autocomplete="username"></div>
+          <div class="form-grup"><label>Şifre (6 Haneli PIN)</label><input id="girisSifre" type="password" maxlength="6" required inputmode="numeric" pattern="\d*" autocomplete="current-password"></div>
+          <button type="submit" class="btn btn-primary">Giriş Yap</button>
+          <div id="girisHata" class="hata-metin"></div>
+        </form>
+        <button type="button" class="btn-link" onclick="ekranDegistir('ekranKayit')">İlk Kez Kayıt Ol / Şifre Sıfırla</button>
+      </div>
+    </div>
   </div>
 </div>
 
+<!-- KAYIT -->
 <div id="ekranKayit" class="ekran-orta">
-  <div class="giris-kart">
-    <div class="giris-logo" style="background:linear-gradient(135deg, var(--lacivert), var(--lacivert-koyu))"><h1>Sisteme Kayıt</h1><p>Sadece kayıtlı personel</p></div>
-    <form id="kayitForm">
-      <div class="form-grup"><label>E-posta</label><input id="kayitEmail" type="email" required></div>
-      <div class="form-grup"><label>6 Haneli Şifre (PIN)</label><input id="kayitSifre" type="password" maxlength="6" required inputmode="numeric" pattern="\d*"></div>
-      <button type="submit" class="btn btn-success" style="margin-top:10px;">Kayıt Ol</button>
-      <div id="kayitHata" style="color:red; text-align:center; font-size:12px; margin-top:10px; font-weight:bold;"></div>
-    </form>
-    <button type="button" class="btn-link" onclick="ekranDegistir('ekranGiris')">Geri Dön</button>
+  <div class="auth">
+    <div class="auth-panel">
+      <div class="giris-kart">
+        <div class="giris-logo"><div class="brand-logo"><svg viewBox="0 0 24 24"><path d="M12 2c1 3.5 4.5 5.5 4.5 9.5a4.5 4.5 0 0 1-9 0c0-1.6.7-2.8 1.5-3.8.3 1.3 1 2 1.7 2.3C10.2 7 10.8 4 12 2zm0 20a7 7 0 0 1-7-7c0-2 .8-3.600 1.800-4.900.1 4.700 3 6.400 5.200 6.400s4.400-1.700 4.800-4.200c.8 1.200 1.200 2.600 1.200 4.200a7 7 0 0 1-6 7z"/></svg></div><div><h1>Sisteme Kayıt</h1><p>Sadece önceden tanımlanmış e-postalar</p></div></div>
+        <form id="kayitForm">
+          <div class="form-grup"><label>E-posta (Kurum E-postanız)</label><input id="kayitEmail" type="email" required></div>
+          <div class="form-grup"><label>6 Haneli Şifre (PIN) Belirleyin</label><input id="kayitSifre" type="password" maxlength="6" required inputmode="numeric" pattern="\d*"></div>
+          <button type="submit" class="btn btn-primary">Kayıt Ol</button>
+          <div id="kayitHata" class="hata-metin"></div>
+        </form>
+        <button type="button" class="btn-link" onclick="ekranDegistir('ekranGiris')">← Geri Dön</button>
+      </div>
+    </div>
   </div>
 </div>
 
+<!-- UYGULAMA -->
 <div id="ekranUygulama" class="ekran">
   <div class="ust-bar">
-    <div class="ust-bar-sol"><div><div class="ust-bar-baslik">🔥 İcap Takip</div><div class="ust-bar-alt" id="ustVardiya">Yükleniyor...</div></div></div>
+    <div class="ust-bar-sol">
+      <div class="brand-logo"><svg viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M12 2c1 3.5 4.5 5.5 4.5 9.5a4.5 4.5 0 0 1-9 0c0-1.6.7-2.8 1.5-3.8.3 1.3 1 2 1.7 2.3C10.2 7 10.8 4 12 2zm0 20a7 7 0 0 1-7-7c0-2 .8-3.600 1.800-4.900.1 4.700 3 6.400 5.200 6.400s4.400-1.700 4.800-4.200c.8 1.200 1.200 2.600 1.200 4.200a7 7 0 0 1-6 7z"/></svg></div>
+      <div><div class="ust-bar-baslik">İCAP TAKİP SİSTEMİ</div><div class="ust-bar-alt" id="ustVardiya"></div></div>
+    </div>
     <div class="ust-bar-sag">
-      <div class="kullanici-bilgi"><strong id="ustIsim">-</strong><span id="ustRol">-</span></div>
-      <button type="button" class="cikis-btn" onclick="cikisYap()">Çıkış</button>
+      <div class="kullanici-bilgi"><strong id="ustIsim"></strong><span id="ustRol"></span></div>
+      <div class="avatar" id="ustAvatar">–</div>
+      <button type="button" class="btn btn-ghost-dark" onclick="cikisYap()">Çıkış</button>
     </div>
   </div>
+
   <div class="ana-icerik">
-    <div class="stat-buyuk"><div class="stat-rakam" id="aktifIcapSayisi">0</div><div class="stat-etiket">Aktif İcap Personeli</div></div>
-    <div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge" style="background:var(--yesil-acik); color:var(--yesil);">🟢</div>Şu An Görevde Olanlar</div><div id="aktifIcapListe"></div></div>
-    <div id="hazirIcapcilarKart"></div>
-    <div id="kisiselBakiyeKart"></div>
-    <div id="rolIcerik"></div>
-    <div class="kart" style="text-align:center; background:#F8FAFC;">
-      <button type="button" class="btn btn-outline" onclick="veriYedekle()" style="color:var(--kirmizi); border-color:#FECACA; background:#FEF2F2;">📥 Sistemi Buluta Yedekle</button>
+    <!-- KPI -->
+    <div class="kpi-grid" style="margin-bottom:16px">
+      <div class="kpi hero"><div class="kpi-etiket"><span class="canli"></span>Aktif İcap</div><div class="kpi-deger" id="aktifIcapSayisi">0</div><div class="kpi-alt">şu an görevde</div></div>
+      <div class="kpi" style="--c:var(--blue)"><div class="kpi-etiket">Aktif Vardiya</div><div class="kpi-deger" id="kpiVardiya">–</div><div class="kpi-alt">nöbetçi ekip</div></div>
+      <div class="kpi" style="--c:var(--green)"><div class="kpi-etiket">Kalan Bakiyem</div><div class="kpi-deger" id="kpiBakiye">–</div><div class="kpi-alt">icap / izin</div></div>
+      <div class="kpi" style="--c:var(--amber)"><div class="kpi-etiket">Bekleyen Onay</div><div class="kpi-deger" id="kpiBekleyen">–</div><div class="kpi-alt">işlem</div></div>
     </div>
-    <div id="logPenceresi" class="kart" style="background:#F8FAFC; display:none;"></div>
+
+    <div class="dashboard">
+      <div class="col">
+        <div class="kart">
+          <div class="kart-baslik"><div class="kart-baslik-simge">🟢</div>Şu An Görevde Olanlar</div>
+          <div id="aktifIcapListe"></div>
+        </div>
+        <div id="rolIcerik" class="col"></div>
+      </div>
+      <div class="col">
+        <div id="kisiselBakiyeKart"></div>
+        <div id="hazirIcapcilarKart"></div>
+        <div class="kart">
+          <div class="kart-baslik"><div class="kart-baslik-simge">☁️</div>Veri Güvenliği</div>
+          <p class="alt-not">Sistem verilerini Supabase bulutuna manuel olarak yedekleyin.</p>
+          <button type="button" class="btn btn-outline" style="margin:0" onclick="veriYedekle()">📥 Sistemi Buluta Yedekle</button>
+        </div>
+        <div id="logPenceresi" class="kart" style="display:none"></div>
+      </div>
+    </div>
   </div>
 </div>
 
