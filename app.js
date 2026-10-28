@@ -1,5 +1,5 @@
 // ============================================================
-// AŞAMA 6: LOG SİSTEMİ VE SİSTEM HAREKETLERİ PENCERESİ
+// AŞAMA 6: LOG SİSTEMİ VE SİSTEM HAREKETLERİ PENCERESİ (TAM)
 // ============================================================
 
 function ekranDegistir(id) {
@@ -30,7 +30,6 @@ function toast(msg, tip='hata') {
   t.classList.add('gorunur'); setTimeout(()=>t.classList.remove('gorunur'), 3000);
 }
 
-// --- YARDIMCI FONKSİYON: LOG EKLEME ---
 async function logEkle(islem, aciklama = "") {
   if (!mevcutPersonel) return;
   await sb.from('log_kayitlari').insert([{
@@ -41,7 +40,6 @@ async function logEkle(islem, aciklama = "") {
   }]);
 }
 
-// --- GİRİŞ & KAYIT ---
 document.getElementById('girisForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = document.getElementById('girisEmail').value.trim();
@@ -73,7 +71,6 @@ document.getElementById('kayitForm').addEventListener('submit', async (e) => {
   if (loginData) oturumBaslat(loginData.user);
 });
 
-// --- OTURUM ---
 async function oturumBaslat(user) {
   const { data } = await sb.from('personel').select('*').eq('auth_user_id', user.id).single();
   if (!data) { alert("Personel kaydınız bulunamadı!"); return cikisYap(); }
@@ -103,11 +100,10 @@ function realtimeBaslat() {
   realtimeKanal = sb.channel('icap-degisim')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'icap_gorevleri' }, () => panelYukle())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'hazir_icapcilar' }, () => panelYukle())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'log_kayitlari' }, () => panelYukle()) // Loglar için canlı güncelleme
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'log_kayitlari' }, () => panelYukle())
     .subscribe();
 }
 
-// --- ANA PANEL ---
 async function panelYukle() {
   if (!mevcutPersonel) return;
 
@@ -149,7 +145,7 @@ async function panelYukle() {
 
   rolIcerikCiz(aktifler, hazirlar);
 
-    // SİSTEM HAREKETLERİ (LOGLAR) ÇEKME - HATA TOLERANSLI
+  // SİSTEM HAREKETLERİ (LOGLAR) ÇEKME - HATA TOLERANSLI
   let logHtml = '';
   try {
     const { data: loglar } = await sb.from('log_kayitlari').select('*').order('ne_zaman', { ascending: false }).limit(10);
@@ -170,7 +166,6 @@ async function panelYukle() {
     logHtml = '<div style="font-size:12px;color:#a33a3a;">Loglar yüklenemedi.</div>';
   }
   
-  // Log penceresini her durumda göster
   const logKutu = document.getElementById('logPenceresi');
   if (logKutu) {
     logKutu.style.display = 'block'; 
@@ -179,8 +174,8 @@ async function panelYukle() {
       <div style="max-height:200px; overflow-y:auto;">${logHtml}</div>
     `;
   }
+}
 
-// --- ROL BAZLI İÇERİK ---
 async function rolIcerikCiz(aktifler, hazirlar) {
   const el = document.getElementById('rolIcerik');
   const rol = mevcutPersonel.rol;
@@ -267,7 +262,6 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   el.innerHTML = html;
 }
 
-// --- İŞLEMLER (Loglamalar Eklendi) ---
 async function icapBaslat() {
   const aciklama = document.getElementById('gorevAciklama').value;
   const { error } = await sb.from('icap_gorevleri').insert([{ personel_id: mevcutPersonel.id, vardiya: mevcutPersonel.vardiya, gorev_aciklamasi: aciklama, durum: 'aktif' }]);
@@ -310,7 +304,6 @@ async function reddet(id, tip) {
   logEkle(tip === 'icap' ? "İcap Reddetti" : "İzin Reddetti", sebep);
 }
 
-// --- MODALLAR ---
 function izinModalAc() {
   let html = `<div class="modal aktif" id="izinModal"><div class="modal-content"><h3 style="margin-top:0;color:#6a5590;">İzin Talebi</h3><div class="form-grup"><label>Süre (Saat)</label><input type="number" id="izinSaat" min="0" value="1"></div><div class="form-grup"><label>Dakika</label><input type="number" id="izinDakika" min="0" max="59" value="0"></div><div class="form-grup"><label>Tarih</label><input type="date" id="izinTarih" value="${new Date().toISOString().split('T')[0]}"></div><div class="form-grup"><label>Açıklama</label><input type="text" id="izinAciklama" placeholder="Neden izin kullanıyorsunuz?"></div><button type="button" class="btn btn-mor" onclick="izinTalepEt()">Talebi Gönder</button><button type="button" class="btn btn-link" onclick="document.getElementById('izinModal').remove()">İptal</button></div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
@@ -370,7 +363,6 @@ async function hazirKaydet() {
   logEkle("Hazır İcapçı Seçti", `${vardiya}. Vardiya`);
 }
 
-// --- SÜPER ADMİN PANELİ MODALI ---
 function adminPaneliAc() {
   let html = `<div class="modal aktif" id="adminModal" style="align-items:flex-start; padding-top:20px;"><div class="modal-content" style="max-width:800px; width:95%;">
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; padding-bottom:10px; margin-bottom:15px;">
@@ -466,7 +458,6 @@ async function adminTab(tab) {
   }
 }
 
-// Admin İşlemleri
 async function personelEkle() {
   const ad = document.getElementById('addAd').value;
   const email = document.getElementById('addEmail').value;
