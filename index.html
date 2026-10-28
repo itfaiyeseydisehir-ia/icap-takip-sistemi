@@ -6,303 +6,199 @@
 <title>Seydişehir İtfaiyesi - İcap Takip</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<!-- Modern Font -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --kirmizi:#D32F2F; --kirmizi-koyu:#B71C1C; --kirmizi-acik:#FFEBEE;
+    --kirmizi:#E53935; --kirmizi-koyu:#C62828; --kirmizi-acik:#FFEBEE;
     --lacivert:#1E293B; --lacivert-koyu:#0F172A; --lacivert-acik:#F1F5F9;
-    --yesil:#10B981; --yesil-koyu:#047857; --yesil-acik:#ECFDF5;
+    --yesil:#10B981; --yesil-acik:#ECFDF5;
     --mavi:#3B82F6; --mavi-acik:#EFF6FF;
     --turuncu:#F59E0B; --turuncu-acik:#FFFBEB;
     --mor:#8B5CF6; --mor-acik:#F5F3FF;
-    --arka:#F3F4F6; --kart:#FFFFFF; --kenar:#E5E7EB;
-    --metin:#111827; --ikincil:#6B7280; --soluk:#9CA3AF;
-    --golge-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
-    --golge-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
-    --golge-lg: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.025);
-    --golge-xl: 0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.02);
+    --arka:#F8FAFC; --kart:#FFFFFF; --kenar:#E2E8F0;
+    --metin:#0F172A; --ikincil:#64748B;
+    --golge-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+    --golge-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.025);
+    --golge-lg: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -4px rgba(0,0,0,0.025);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0;min-height:100%}
   body{
-    font-family:'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family:'Plus Jakarta Sans', -apple-system, sans-serif;
     background-color:var(--arka); color:var(--metin);
-    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    -webkit-font-smoothing:antialiased;
   }
   button,input,textarea,select{font-family:inherit}
   button{-webkit-appearance:none;border:none;cursor:pointer}
   
   /* EKRANLAR */
   .ekran{display:none}.ekran.aktif{display:block}
-  .ekran-orta{display:none;min-height:100vh;align-items:center;justify-content:center;padding:18px; background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);}
+  .ekran-orta{display:none;min-height:100vh;align-items:center;justify-content:center;padding:20px; background: linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%);}
   .ekran-orta.aktif{display:flex}
   
   /* GİRİŞ KARTI */
   .giris-kart{
-    background:var(--kart); border-radius:24px; padding:32px 24px; width:100%; max-width:420px;
-    box-shadow: var(--golge-xl); border: 1px solid rgba(255,255,255,0.5);
-    backdrop-filter: blur(10px);
+    background:var(--kart); border-radius:24px; padding:32px 28px; width:100%; max-width:420px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.8);
   }
   .giris-logo{
     background: linear-gradient(135deg, var(--kirmizi-koyu), var(--kirmizi));
-    border-radius:20px; padding:24px; text-align:center; color:#fff;
-    margin-bottom:24px; box-shadow: 0 10px 20px -5px rgba(183,28,28,0.4);
-    position: relative; overflow: hidden;
+    border-radius:20px; padding:28px; text-align:center; color:#fff;
+    margin-bottom:28px; box-shadow: 0 10px 20px -5px rgba(198,40,40,0.4);
   }
-  .giris-logo::after {
-    content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 60%);
-    transform: rotate(45deg);
-  }
-  .giris-logo h1{font-size:20px; font-weight:800; letter-spacing:-0.5px; margin:0 0 6px; position:relative; z-index:1}
-  .giris-logo p{font-size:13px; font-weight:500; opacity:0.9; margin:0; position:relative; z-index:1}
+  .giris-logo h1{font-size:22px; font-weight:800; letter-spacing:-0.5px; margin:0 0 6px;}
+  .giris-logo p{font-size:13px; font-weight:500; opacity:0.9; margin:0;}
   
   /* FORMLAR */
-  .form-grup{margin-bottom:16px}
-  .form-grup label{display:block;font-size:13px;font-weight:600;color:var(--metin);margin-bottom:8px}
+  .form-grup{margin-bottom:18px}
+  .form-grup label{display:block;font-size:13px;font-weight:700;color:var(--metin);margin-bottom:8px}
   .form-grup input,.form-grup select{
     width:100%; padding:14px 16px; border:1.5px solid var(--kenar);
-    background:#F9FAFB; border-radius:12px; font-size:15px; color:var(--metin);
-    outline:none; transition: all 0.2s; font-weight:500;
+    background:#F8FAFC; border-radius:12px; font-size:15px; color:var(--metin);
+    outline:none; transition: all 0.2s; font-weight:600;
   }
-  .form-grup input:focus,.form-grup select:focus{
-    border-color:var(--kirmizi); background:#fff; box-shadow: 0 0 0 4px var(--kirmizi-acik);
-  }
+  .form-grup input:focus{border-color:var(--kirmizi); background:#fff; box-shadow: 0 0 0 4px var(--kirmizi-acik);}
   
   /* BUTONLAR */
   .btn{
     width:100%; padding:15px 20px; border-radius:12px; font-size:15px; font-weight:700;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); margin-bottom:10px;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: all 0.2s; margin-bottom:10px; display: flex; align-items: center; justify-content: center; gap: 8px;
   }
   .btn:active{transform:scale(0.97)}
-  .btn-primary{background:linear-gradient(135deg, var(--kirmizi), var(--kirmizi-koyu)); color:#fff; box-shadow: 0 4px 12px rgba(211,47,47,0.3);}
-  .btn-primary:hover{box-shadow: 0 6px 16px rgba(211,47,47,0.4)}
-  .btn-success{background:linear-gradient(135deg, var(--yesil), var(--yesil-koyu)); color:#fff; box-shadow: 0 4px 12px rgba(16,185,129,0.3);}
-  .btn-danger{background:linear-gradient(135deg, #EF4444, #B91C1C); color:#fff; box-shadow: 0 4px 12px rgba(239,68,68,0.3);}
-  .btn-mor{background:linear-gradient(135deg, var(--mor), #6D28D9); color:#fff; box-shadow: 0 4px 12px rgba(139,92,246,0.3);}
-  .btn-mavi{background:linear-gradient(135deg, var(--mavi), #1D4ED8); color:#fff; box-shadow: 0 4px 12px rgba(59,130,246,0.3);}
-  .btn-outline{background:#fff; color:var(--metin); border:1.5px solid var(--kenar); box-shadow: var(--golge-sm);}
-  .btn-outline:hover{border-color:var(--ikincil); background:#F9FAFB}
-  .btn-link{background:none; color:var(--kirmizi); font-weight:600; font-size:14px; padding:10px 0; text-decoration:none; width:100%; transition:opacity 0.2s;}
-  .btn-link:hover{opacity:0.7}
-  .btn:disabled{opacity:0.6; cursor:not-allowed; transform:none}
-  .hata-metin{color:#DC2626;font-size:13px;text-align:center;margin-top:12px;min-height:20px;font-weight:600}
+  .btn-primary{background:var(--kirmizi); color:#fff; box-shadow: 0 4px 12px rgba(229,57,53,0.3);}
+  .btn-primary:hover{background:var(--kirmizi-koyu);}
+  .btn-success{background:var(--yesil); color:#fff; box-shadow: 0 4px 12px rgba(16,185,129,0.3);}
+  .btn-danger{background:#EF4444; color:#fff;}
+  .btn-mor{background:var(--mor); color:#fff;}
+  .btn-mavi{background:var(--mavi); color:#fff; box-shadow: 0 4px 12px rgba(59,130,246,0.3);}
+  .btn-outline{background:#fff; color:var(--metin); border:1.5px solid var(--kenar);}
+  .btn-link{background:none; color:var(--kirmizi); font-weight:700; font-size:14px; padding:10px 0; width:100%; text-align:center;}
   
   /* ÜST BAR */
   .ust-bar{
-    background: rgba(183, 28, 28, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px);
     color:#fff; padding:16px 20px; display:flex; align-items:center; justify-content:space-between;
     position:sticky; top:0; z-index:100; border-bottom: 1px solid rgba(255,255,255,0.1);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
   }
-  .ust-bar-sol{display:flex; align-items:center; gap:12px}
   .ust-bar-baslik{font-size:16px; font-weight:800; letter-spacing:-0.3px}
-  .ust-bar-alt{font-size:11px; font-weight:500; opacity:0.85; margin-top:2px}
-  .ust-bar-sag{display:flex; align-items:center; gap:12px}
+  .ust-bar-alt{font-size:11px; font-weight:600; color:var(--turuncu); margin-top:2px}
   .kullanici-bilgi{font-size:13px; text-align:right}
   .kullanici-bilgi strong{display:block; font-weight:700}
-  .kullanici-bilgi span{font-size:11px; font-weight:600; opacity:0.85; color: #FFD54F;}
-  .cikis-btn{
-    background: rgba(255,255,255,0.15); color:#fff; padding:8px 14px; border-radius:10px;
-    font-size:12px; font-weight:700; border:1px solid rgba(255,255,255,0.2); transition:all 0.2s;
-  }
-  .cikis-btn:hover{background: rgba(255,255,255,0.25);}
+  .kullanici-bilgi span{font-size:10px; font-weight:700; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; margin-top:4px; display:inline-block;}
+  .cikis-btn{background: rgba(255,255,255,0.1); color:#fff; padding:8px 14px; border-radius:8px; font-size:12px; font-weight:700;}
   
   /* ANA İÇERİK */
   .ana-icerik{padding:20px 16px; max-width:768px; margin:0 auto; padding-bottom: 40px;}
   
   /* KARTLAR */
   .kart{
-    background:var(--kart); border:1px solid rgba(229,231,235,0.6); border-radius:20px;
-    padding:20px; margin-bottom:16px; box-shadow: var(--golge-md);
-    transition: transform 0.2s, box-shadow 0.2s;
+    background:var(--kart); border:1px solid var(--kenar); border-radius:20px;
+    padding:22px; margin-bottom:16px; box-shadow: var(--golge-md);
   }
-  .kart:hover{box-shadow: var(--golge-lg);}
-  .kart-baslik{display:flex; align-items:center; gap:12px; font-size:16px; font-weight:800; color:var(--metin); margin-bottom:16px;}
+  .kart-baslik{display:flex; align-items:center; gap:12px; font-size:16px; font-weight:800; color:var(--metin); margin-bottom:18px;}
   .kart-baslik-simge{
-    width:36px; height:36px; border-radius:12px; background:var(--lacivert-acik);
+    width:38px; height:38px; border-radius:12px; background:var(--lacivert-acik);
     display:flex; align-items:center; justify-content:center; font-size:18px;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
   }
   
   /* BÜYÜK İSTATİSTİK KARTI */
   .stat-buyuk{
-    background: linear-gradient(135deg, var(--lacivert), var(--lacivert-koyu));
+    background: linear-gradient(135deg, var(--kirmizi-koyu), var(--kirmizi));
     color:#fff; border-radius:24px; padding:32px 24px; text-align:center;
-    margin-bottom:20px; box-shadow: 0 15px 30px -5px rgba(15,23,42,0.5);
+    margin-bottom:20px; box-shadow: 0 15px 30px -5px rgba(198,40,40,0.4);
     position:relative; overflow:hidden;
   }
-  .stat-buyuk::before{
-    content:""; position:absolute; top:-50%; left:-50%; width:200%; height:200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
-  }
-  .stat-rakam{
-    font-size:64px; font-weight:900; line-height:1; letter-spacing:-2px;
-    color: #FFF; text-shadow: 0 4px 20px rgba(255,255,255,0.3);
-    position:relative; z-index:1;
-  }
-  .stat-etiket{font-size:13px; font-weight:600; opacity:0.8; margin-top:8px; text-transform:uppercase; letter-spacing:1px; position:relative; z-index:1}
+  .stat-rakam{font-size:72px; font-weight:800; line-height:1; letter-spacing:-3px; position:relative; z-index:1}
+  .stat-etiket{font-size:13px; font-weight:700; opacity:0.9; margin-top:8px; text-transform:uppercase; letter-spacing:1.5px; position:relative; z-index:1}
   
   /* BAKİYE KARTI */
   .bakiye-kart{
-    background: linear-gradient(135deg, #FFFFFF, #F8FAFC);
-    border: 1.5px solid var(--kenar); border-radius:20px; padding:20px;
-    margin-bottom:20px; box-shadow: var(--golge-sm);
+    background: var(--kart); border: 1.5px solid var(--kenar); border-radius:20px; padding:20px;
+    margin-bottom:20px; box-shadow: var(--golge-sm); overflow: hidden;
   }
   .bakiye-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
   .bakiye-item{
-    background:#fff; border-radius:16px; padding:16px 12px; text-align:center;
-    border: 1px solid var(--kenar); box-shadow: var(--golge-sm);
+    background:#F8FAFC; border-radius:14px; padding:16px 10px; text-align:center; border: 1px solid var(--kenar);
   }
-  .bakiye-etiket{font-size:10px; font-weight:800; color:var(--ikincil); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px}
-  .bakiye-deger{font-size:18px; font-weight:900; color:var(--metin)}
+  .bakiye-etiket{font-size:10px; font-weight:800; color:var(--ikincil); text-transform:uppercase; margin-bottom:6px}
+  .bakiye-deger{font-size:18px; font-weight:800; color:var(--metin)}
   
-  /* LİSTELER */
-  .aktif-item{
-    background:#F8FAFC; border:1px solid var(--kenar); border-left:4px solid var(--mavi);
-    border-radius:12px; padding:16px; margin-bottom:12px; transition:all 0.2s;
-  }
-  .aktif-item:hover{background:#fff; box-shadow:var(--golge-sm);}
-  .aktif-ust{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
-  .aktif-isim{font-size:15px; font-weight:700; color:var(--metin)}
+  /* MODERN TABLOLAR (Geçmiş Dökümü İçin) */
+  .modern-tablo-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--kenar); margin-top: 12px; }
+  .modern-tablo { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+  .modern-tablo th { background: #F8FAFC; padding: 12px 16px; font-weight: 700; color: var(--ikincil); text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; border-bottom: 1px solid var(--kenar); }
+  .modern-tablo td { padding: 14px 16px; border-bottom: 1px solid var(--kenar); vertical-align: middle; }
+  .modern-tablo tr:last-child td { border-bottom: none; }
+  .modern-tablo tr:hover td { background: #F8FAFC; }
   
-  /* ONAY BEKLEYENLER */
-  .onay-item{
-    background:#FFFBEB; border:1px solid #FDE68A; border-left:4px solid var(--turuncu);
-    border-radius:12px; padding:16px; margin-bottom:12px;
-  }
-  .onay-btnler{display:flex;gap:10px;margin-top:12px}
-  .onay-btnler button{flex:1;padding:12px;border-radius:10px;font-size:13px;font-weight:700}
+  /* ETİKETLER (Badge) */
+  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+  .badge-yesil { background: var(--yesil-acik); color: var(--yesil); }
+  .badge-kirmizi { background: var(--kirmizi-acik); color: var(--kirmizi-koyu); }
+  .badge-turuncu { background: var(--turuncu-acik); color: var(--turuncu); }
   
-  /* MODAL VE DİĞERLERİ */
-  textarea{
-    width:100%; min-height:90px; border-radius:12px; border:1.5px solid var(--kenar);
-    padding:14px; font-size:14px; margin-bottom:12px; background:#F9FAFB;
-    transition: all 0.2s; outline: none; font-family: inherit;
-  }
-  textarea:focus{border-color:var(--kirmizi); background:#fff; box-shadow: 0 0 0 4px var(--kirmizi-acik);}
-  
-  .modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;padding:16px}
-  .modal.aktif{display:flex; animation: fadeIn 0.2s ease-out;}
-  .modal-content{
-    background:#fff; border-radius:24px; padding:24px; width:100%; max-width:500px;
-    max-height:90vh; overflow-y:auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  /* MODAL */
+  .modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;padding:16px}
+  .modal.aktif{display:flex;}
+  .modal-content{background:#fff; border-radius:24px; padding:24px; width:100%; max-width:500px; max-height:90vh; overflow-y:auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3);}
   
   /* TOAST */
-  #toast{
-    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
-    background:var(--lacivert-koyu); color:#fff; padding:14px 24px; border-radius:12px;
-    font-size:14px; font-weight:600; opacity:0; transition:all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    z-index:9999; box-shadow: 0 10px 25px rgba(0,0,0,0.2); pointer-events:none;
-  }
-  #toast.gorunur{opacity:1; transform:translateX(-50%) translateY(0);}
+  #toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--lacivert-koyu); color:#fff; padding:14px 24px; border-radius:12px; font-size:14px; font-weight:700; opacity:0; transition:all 0.3s; z-index:9999; box-shadow: 0 10px 25px rgba(0,0,0,0.2);}
+  #toast.gorunur{opacity:1; transform:translateX(-50%) translateY(-10px);}
   
-  /* SCROLLBAR */
-  ::-webkit-scrollbar { width: 8px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
-  
-  @media(max-width:480px){
-    .stat-rakam{font-size:56px}
-    .bakiye-grid{grid-template-columns:1fr}
-    .giris-kart{padding:24px 20px}
-  }
+  @media(max-width:480px){ .stat-rakam{font-size:56px} .bakiye-grid{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
 <div id="toast"></div>
 
-<!-- GİRİŞ EKRANI -->
 <div id="ekranGiris" class="ekran-orta aktif">
   <div class="giris-kart">
-    <div class="giris-logo">
-      <h1>🔥 Seydişehir İtfaiyesi</h1>
-      <p>İcap Takip Sistemi</p>
-    </div>
+    <div class="giris-logo"><h1>Seydişehir İtfaiyesi</h1><p>İcap Takip Sistemi</p></div>
     <form id="girisForm">
-      <div class="form-grup"><label>E-posta Adresiniz</label><input id="girisEmail" type="email" placeholder="ornek@seyitfaiye.local" required></div>
-      <div class="form-grup"><label>Şifre (6 Haneli PIN)</label><input id="girisSifre" type="password" maxlength="6" required inputmode="numeric" pattern="\d*" placeholder="••••••"></div>
+      <div class="form-grup"><label>E-posta Adresiniz</label><input id="girisEmail" type="email" required></div>
+      <div class="form-grup"><label>Şifre (6 Haneli PIN)</label><input id="girisSifre" type="password" maxlength="6" required inputmode="numeric" pattern="\d*"></div>
       <button type="submit" class="btn btn-primary" style="margin-top:10px;">Giriş Yap</button>
-      <div id="girisHata" class="hata-metin"></div>
+      <div id="girisHata" class="hata-metin" style="color:red; text-align:center; font-size:12px; margin-top:10px; font-weight:bold;"></div>
     </form>
     <button type="button" class="btn-link" onclick="ekranDegistir('ekranKayit')">İlk Kez Kayıt Ol / Şifre Sıfırla</button>
   </div>
 </div>
 
-<!-- KAYIT EKRANI -->
 <div id="ekranKayit" class="ekran-orta">
   <div class="giris-kart">
-    <div class="giris-logo" style="background:linear-gradient(135deg, var(--lacivert), var(--lacivert-koyu))">
-      <h1>📝 Sisteme Kayıt</h1>
-      <p>Sadece önceden tanımlanmış personel</p>
-    </div>
+    <div class="giris-logo" style="background:linear-gradient(135deg, var(--lacivert), var(--lacivert-koyu))"><h1>Sisteme Kayıt</h1><p>Sadece kayıtlı personel</p></div>
     <form id="kayitForm">
-      <div class="form-grup"><label>E-posta (Kurum E-postanız)</label><input id="kayitEmail" type="email" required></div>
-      <div class="form-grup"><label>6 Haneli Şifre (PIN) Belirleyin</label><input id="kayitSifre" type="password" maxlength="6" required inputmode="numeric" pattern="\d*" placeholder="••••••"></div>
+      <div class="form-grup"><label>E-posta</label><input id="kayitEmail" type="email" required></div>
+      <div class="form-grup"><label>6 Haneli Şifre (PIN)</label><input id="kayitSifre" type="password" maxlength="6" required inputmode="numeric" pattern="\d*"></div>
       <button type="submit" class="btn btn-success" style="margin-top:10px;">Kayıt Ol</button>
-      <div id="kayitHata" class="hata-metin"></div>
+      <div id="kayitHata" style="color:red; text-align:center; font-size:12px; margin-top:10px; font-weight:bold;"></div>
     </form>
     <button type="button" class="btn-link" onclick="ekranDegistir('ekranGiris')">Geri Dön</button>
   </div>
 </div>
 
-<!-- UYGULAMA EKRANI -->
 <div id="ekranUygulama" class="ekran">
   <div class="ust-bar">
-    <div class="ust-bar-sol">
-      <div>
-        <div class="ust-bar-baslik">🔥 İcap Takip</div>
-        <div class="ust-bar-alt" id="ustVardiya">Yükleniyor...</div>
-      </div>
-    </div>
+    <div class="ust-bar-sol"><div><div class="ust-bar-baslik">🔥 İcap Takip</div><div class="ust-bar-alt" id="ustVardiya">Yükleniyor...</div></div></div>
     <div class="ust-bar-sag">
-      <div class="kullanici-bilgi">
-        <strong id="ustIsim">-</strong>
-        <span id="ustRol">-</span>
-      </div>
+      <div class="kullanici-bilgi"><strong id="ustIsim">-</strong><span id="ustRol">-</span></div>
       <button type="button" class="cikis-btn" onclick="cikisYap()">Çıkış</button>
     </div>
   </div>
-  
   <div class="ana-icerik">
-    <!-- 1. AKTİF İCAP SAYISI -->
-    <div class="stat-buyuk">
-      <div class="stat-rakam" id="aktifIcapSayisi">0</div>
-      <div class="stat-etiket">Aktif İcap Personeli</div>
-    </div>
-
-    <!-- 2. ŞU AN GÖREVDE OLANLAR -->
-    <div class="kart">
-      <div class="kart-baslik">
-        <div class="kart-baslik-simge" style="color:var(--yesil);">🟢</div>Şu An Görevde Olanlar
-      </div>
-      <div id="aktifIcapListe"></div>
-    </div>
-
-    <!-- 3. DİĞER ALANLAR -->
+    <div class="stat-buyuk"><div class="stat-rakam" id="aktifIcapSayisi">0</div><div class="stat-etiket">Aktif İcap Personeli</div></div>
+    <div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge" style="background:var(--yesil-acik); color:var(--yesil);">🟢</div>Şu An Görevde Olanlar</div><div id="aktifIcapListe"></div></div>
     <div id="hazirIcapcilarKart"></div>
     <div id="kisiselBakiyeKart"></div>
     <div id="rolIcerik"></div>
-
-    <!-- 4. YEDEKLEME BUTONU -->
-    <div class="kart" style="text-align:center; background:#F8FAFC; border-style:dashed;">
-      <button type="button" class="btn btn-outline" onclick="veriYedekle()" style="color:var(--kirmizi); border-color:#FECACA; background:#FEF2F2;">
-        📥 Sistemi Buluta Yedekle
-      </button>
+    <div class="kart" style="text-align:center; background:#F8FAFC;">
+      <button type="button" class="btn btn-outline" onclick="veriYedekle()" style="color:var(--kirmizi); border-color:#FECACA; background:#FEF2F2;">📥 Sistemi Buluta Yedekle</button>
     </div>
-
-    <!-- 5. LOG PENCERESİ -->
-    <div id="logPenceresi" class="kart" style="background:#F8FAFC; border-style:dashed; display:none;"></div>
+    <div id="logPenceresi" class="kart" style="background:#F8FAFC; display:none;"></div>
   </div>
 </div>
 
