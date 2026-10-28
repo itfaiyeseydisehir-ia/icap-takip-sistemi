@@ -89,13 +89,36 @@
     </div>
   </div>
   <div class="ana-icerik">
-    <div class="stat-buyuk"><div class="stat-rakam" id="aktifIcapSayisi">0</div><div class="stat-etiket">Aktif İcap Personeli</div></div>
-    <div id="hazirIcapcilarKart"></div>
-    <div id="kisiselBakiyeKart"></div>
-    <div class="kart"><div class="kart-baslik"><div class="kart-baslik-simge">🟢</div>Şu An Görevde Olanlar</div><div id="aktifIcapListe"></div></div>
-    <div id="rolIcerik"></div>
-    <div id="logPenceresi" class="kart" style="margin-top:20px; background:#f8fafb; border:1px dashed #ccc; box-shadow:none; display:none;"></div>
+  
+  <!-- 1. AKTİF İCAP SAYISI -->
+  <div class="stat-buyuk">
+    <div class="stat-rakam" id="aktifIcapSayisi">0</div>
+    <div class="stat-etiket">Aktif İcap Personeli</div>
   </div>
+
+  <!-- 2. ŞU AN GÖREVDE OLANLAR -->
+  <div class="kart">
+    <div class="kart-baslik">
+      <div class="kart-baslik-simge">🟢</div>Şu An Görevde Olanlar
+    </div>
+    <div id="aktifIcapListe"></div>
+  </div>
+
+  <!-- 3. DİĞER ALANLAR -->
+  <div id="hazirIcapcilarKart"></div>
+  <div id="kisiselBakiyeKart"></div>
+  <div id="rolIcerik"></div>
+
+  <!-- 4. YEDEKLEME BUTONU -->
+  <div class="kart" style="text-align:center; background:#f8fafb;">
+    <button type="button" class="btn btn-outline" onclick="veriYedekle()" style="border:1px dashed #9c2b2b; color:#9c2b2b; font-weight:bold; padding:12px;">
+      📥 Sistemi Yedekle ve E-posta Gönder
+    </button>
+  </div>
+
+  <!-- 5. LOG PENCERESİ -->
+  <div id="logPenceresi" class="kart" style="margin-top:20px; background:#f8fafb; border:1px dashed #ccc; box-shadow:none; display:none;"></div>
+
 </div>
 
 <!-- JavaScript dosyamızı buraya çağırıyoruz -->
