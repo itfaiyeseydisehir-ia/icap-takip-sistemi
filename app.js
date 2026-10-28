@@ -149,27 +149,31 @@ async function panelYukle() {
 
   rolIcerikCiz(aktifler, hazirlar);
 
-  // SİSTEM HAREKETLERİ (LOGLAR) ÇEKME - YENİ VE GÜVENLİ YÖNTEM
-  const { data: loglar } = await sb.from('log_kayitlari').select('*').order('ne_zaman', { ascending: false }).limit(10);
+    // SİSTEM HAREKETLERİ (LOGLAR) ÇEKME - HATA TOLERANSLI
   let logHtml = '';
-  if (loglar && loglar.length > 0) {
-    loglar.forEach(l => {
-      const t = new Date(l.ne_zaman).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
-      logHtml += `<div style="border-bottom:1px solid #eee; padding:6px 0; font-size:12px;">
-        <span style="color:#6b7178; font-size:11px; margin-right:8px;">[${t}]</span>
-        <strong style="color:#30363d;">${l.ad_soyad_snapshot}</strong>: 
-        <span style="color:#35618a;">${l.islem}</span> 
-        <span style="color:#6b7178; font-size:11px;">${l.aciklama ? '- ' + l.aciklama : ''}</span>
-      </div>`;
-    });
-  } else {
-    logHtml = '<div style="font-size:12px;color:#979da3;">Henüz sistem hareketi yok.</div>';
+  try {
+    const { data: loglar } = await sb.from('log_kayitlari').select('*').order('ne_zaman', { ascending: false }).limit(10);
+    if (loglar && loglar.length > 0) {
+      loglar.forEach(l => {
+        const t = new Date(l.ne_zaman).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
+        logHtml += `<div style="border-bottom:1px solid #eee; padding:6px 0; font-size:12px;">
+          <span style="color:#6b7178; font-size:11px; margin-right:8px;">[${t}]</span>
+          <strong style="color:#30363d;">${l.ad_soyad_snapshot}</strong>: 
+          <span style="color:#35618a;">${l.islem}</span> 
+          <span style="color:#6b7178; font-size:11px;">${l.aciklama ? '- ' + l.aciklama : ''}</span>
+        </div>`;
+      });
+    } else {
+      logHtml = '<div style="font-size:12px;color:#979da3;">Henüz sistem hareketi yok.</div>';
+    }
+  } catch (err) {
+    logHtml = '<div style="font-size:12px;color:#a33a3a;">Loglar yüklenemedi.</div>';
   }
   
-  // YENİ: Log penceresini kendi bağımsız div'ine yazdır (silinmemesi için)
+  // Log penceresini her durumda göster
   const logKutu = document.getElementById('logPenceresi');
   if (logKutu) {
-    logKutu.style.display = 'block'; // Gizliyse görünür yap
+    logKutu.style.display = 'block'; 
     logKutu.innerHTML = `
       <div class="kart-baslik" style="color:#6b7178;"><div class="kart-baslik-simge" style="background:#e0e5e9;">📜</div>Sistem Hareketleri (Son İşlemler)</div>
       <div style="max-height:200px; overflow-y:auto;">${logHtml}</div>
