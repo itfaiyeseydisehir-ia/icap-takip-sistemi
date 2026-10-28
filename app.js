@@ -91,11 +91,18 @@ document.getElementById('kayitForm').addEventListener('submit', async (e) => {
 
 // Oturum Başlatma
 async function oturumBaslat(user) {
+  // Veritabanından kullanıcıyı çek
   const { data, error } = await sb.from('personel').select('*').eq('auth_user_id', user.id).single();
   
-  if (error || !data) { 
-    alert("Personel kaydınız bulunamadı! (Veritabanı bağlantı hatası)"); 
-    return cikisYap(); 
+  if (error) {
+    // Eğer hata varsa gerçek sebebini ekrana bas
+    alert("VERİTABANI HATASI:\n" + error.message + "\nKod: " + error.code + "\nDetay: " + error.details);
+    return cikisYap();
+  }
+  
+  if (!data) {
+    alert("Kullanıcı giriş yaptı ancak personel tablosunda kaydı bulunamadı!");
+    return cikisYap();
   }
   
   mevcutPersonel = data;
