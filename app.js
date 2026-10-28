@@ -149,7 +149,7 @@ async function panelYukle() {
 
   rolIcerikCiz(aktifler, hazirlar);
 
-  // SİSTEM HAREKETLERİ (LOGLAR) ÇEKME
+  // SİSTEM HAREKETLERİ (LOGLAR) ÇEKME - YENİ VE GÜVENLİ YÖNTEM
   const { data: loglar } = await sb.from('log_kayitlari').select('*').order('ne_zaman', { ascending: false }).limit(10);
   let logHtml = '';
   if (loglar && loglar.length > 0) {
@@ -165,14 +165,16 @@ async function panelYukle() {
   } else {
     logHtml = '<div style="font-size:12px;color:#979da3;">Henüz sistem hareketi yok.</div>';
   }
-  // Log penceresini en alta (rol içeriğinin altına) ekliyoruz
-  document.getElementById('rolIcerik').innerHTML += `
-    <div class="kart" style="margin-top:20px; background:#f8fafb; border:1px dashed #ccc; box-shadow:none;">
+  
+  // YENİ: Log penceresini kendi bağımsız div'ine yazdır (silinmemesi için)
+  const logKutu = document.getElementById('logPenceresi');
+  if (logKutu) {
+    logKutu.style.display = 'block'; // Gizliyse görünür yap
+    logKutu.innerHTML = `
       <div class="kart-baslik" style="color:#6b7178;"><div class="kart-baslik-simge" style="background:#e0e5e9;">📜</div>Sistem Hareketleri (Son İşlemler)</div>
       <div style="max-height:200px; overflow-y:auto;">${logHtml}</div>
-    </div>
-  `;
-}
+    `;
+  }
 
 // --- ROL BAZLI İÇERİK ---
 async function rolIcerikCiz(aktifler, hazirlar) {
