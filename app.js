@@ -1,5 +1,5 @@
 // ============================================================
-// AŞAMA 5: SÜPER ADMİN PANELİ VE PERSONEL YÖNETİMİ
+// AŞAMA 6: LOG SİSTEMİ VE SİSTEM HAREKETLERİ PENCERESİ
 // ============================================================
 
 function ekranDegistir(id) {
@@ -28,6 +28,17 @@ function toast(msg, tip='hata') {
   const t = document.getElementById('toast');
   t.innerText = msg; t.style.background = tip === 'hata' ? '#9c2b2b' : '#2f7a52';
   t.classList.add('gorunur'); setTimeout(()=>t.classList.remove('gorunur'), 3000);
+}
+
+// --- YARDIMCI FONKSİYON: LOG EKLEME ---
+async function logEkle(islem, aciklama = "") {
+  if (!mevcutPersonel) return;
+  await sb.from('log_kayitlari').insert([{
+    personel_id: mevcutPersonel.id,
+    ad_soyad_snapshot: mevcutPersonel.ad_soyad,
+    islem: islem,
+    aciklama: aciklama
+  }]);
 }
 
 // --- GİRİŞ & KAYIT ---
@@ -92,6 +103,7 @@ function realtimeBaslat() {
   realtimeKanal = sb.channel('icap-degisim')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'icap_gorevleri' }, () => panelYukle())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'hazir_icapcilar' }, () => panelYukle())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'log_kayitlari' }, () => panelYukle()) // Loglar için canlı güncelleme
     .subscribe();
 }
 
@@ -136,6 +148,30 @@ async function panelYukle() {
     </div>`;
 
   rolIcerikCiz(aktifler, hazirlar);
+
+  // SİSTEM HAREKETLERİ (LOGLAR) ÇEKME
+  const { data: loglar } = await sb.from('log_kayitlari').select('*').order('ne_zaman', { ascending: false }).limit(10);
+  let logHtml = '';
+  if (loglar && loglar.length > 0) {
+    loglar.forEach(l => {
+      const t = new Date(l.ne_zaman).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
+      logHtml += `<div style="border-bottom:1px solid #eee; padding:6px 0; font-size:12px;">
+        <span style="color:#6b7178; font-size:11px; margin-right:8px;">[${t}]</span>
+        <strong style="color:#30363d;">${l.ad_soyad_snapshot}</strong>: 
+        <span style="color:#35618a;">${l.islem}</span> 
+        <span style="color:#6b7178; font-size:11px;">${l.aciklama ? '- ' + l.aciklama : ''}</span>
+      </div>`;
+    });
+  } else {
+    logHtml = '<div style="font-size:12px;color:#979da3;">Henüz sistem hareketi yok.</div>';
+  }
+  // Log penceresini en alta (rol içeriğinin altına) ekliyoruz
+  document.getElementById('rolIcerik').innerHTML += `
+    <div class="kart" style="margin-top:20px; background:#f8fafb; border:1px dashed #ccc; box-shadow:none;">
+      <div class="kart-baslik" style="color:#6b7178;"><div class="kart-baslik-simge" style="background:#e0e5e9;">📜</div>Sistem Hareketleri (Son İşlemler)</div>
+      <div style="max-height:200px; overflow-y:auto;">${logHtml}</div>
+    </div>
+  `;
 }
 
 // --- ROL BAZLI İÇERİK ---
@@ -144,7 +180,6 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   const rol = mevcutPersonel.rol;
   let html = '';
 
-  // Süper Admin'e Özel Buton
   if (rol === 'super_admin') {
     html += `<div class="kart" style="background:#23262b;color:#fff;">
       <div class="kart-baslik" style="color:#fff;"><div class="kart-baslik-simge" style="background:#444;">🛠️</div>Süper Admin Yönetim Paneli</div>
@@ -222,14 +257,20 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       <button type="button" class="btn btn-outline" style="border:1px solid #ccc;background:#fff;" onclick="raporCsvIndir()">⬇ Detaylı CSV İndir</button>
     </div>`;
   }
+  
   el.innerHTML = html;
 }
 
-// --- İŞLEMLER ---
+// --- İŞLEMLER (Loglamalar Eklendi) ---
 async function icapBaslat() {
   const aciklama = document.getElementById('gorevAciklama').value;
   const { error } = await sb.from('icap_gorevleri').insert([{ personel_id: mevcutPersonel.id, vardiya: mevcutPersonel.vardiya, gorev_aciklamasi: aciklama, durum: 'aktif' }]);
-  if (error) toast("Hata: " + error.message); else { toast("İcap başlatıldı", "basari"); }
+  
+  if (error) toast("Hata: " + error.message); 
+  else { 
+    toast("İcap başlatıldı", "basari"); 
+    logEkle("İcap Başlattı", aciklama);
+  }
 }
 
 async function icapBitir(id) {
@@ -237,14 +278,21 @@ async function icapBitir(id) {
   const { data } = await sb.from('icap_gorevleri').select('baslama_zamani').eq('id', id).single();
   const dk = Math.floor((new Date() - new Date(data.baslama_zamani)) / 60000);
   const otomatikOnay = ['grup_amiri', 'vardiya_cavusu', 'super_admin'].includes(mevcutPersonel.rol);
+  
   const { error } = await sb.from('icap_gorevleri').update({ bitis_zamani: new Date().toISOString(), toplam_dakika: dk, durum: otomatikOnay ? 'onaylandi' : 'onay_bekliyor', onaylayan_id: otomatikOnay ? mevcutPersonel.id : null, onay_zamani: otomatikOnay ? new Date().toISOString() : null }).eq('id', id);
-  if (error) toast("Hata: " + error.message); else { toast("İcap bitirildi", "basari"); }
+  
+  if (error) toast("Hata: " + error.message); 
+  else { 
+    toast("İcap bitirildi", "basari"); 
+    logEkle("İcabı Bitirdi", `Süre: ${dk} dk`);
+  }
 }
 
 async function onayla(id, tip) {
   const tablo = tip === 'icap' ? 'icap_gorevleri' : 'icap_izin_talepleri';
   await sb.from(tablo).update({ durum: 'onaylandi', onaylayan_id: mevcutPersonel.id, onay_zamani: new Date().toISOString() }).eq('id', id);
   toast("Onaylandı", "basari");
+  logEkle(tip === 'icap' ? "İcap Onayladı" : "İzin Onayladı");
 }
 
 async function reddet(id, tip) {
@@ -253,6 +301,67 @@ async function reddet(id, tip) {
   if (sebep === null) return;
   await sb.from(tablo).update({ durum: 'reddedildi', onaylayan_id: mevcutPersonel.id, red_sebebi: sebep }).eq('id', id);
   toast("Reddedildi");
+  logEkle(tip === 'icap' ? "İcap Reddetti" : "İzin Reddetti", sebep);
+}
+
+// --- MODALLAR ---
+function izinModalAc() {
+  let html = `<div class="modal aktif" id="izinModal"><div class="modal-content"><h3 style="margin-top:0;color:#6a5590;">İzin Talebi</h3><div class="form-grup"><label>Süre (Saat)</label><input type="number" id="izinSaat" min="0" value="1"></div><div class="form-grup"><label>Dakika</label><input type="number" id="izinDakika" min="0" max="59" value="0"></div><div class="form-grup"><label>Tarih</label><input type="date" id="izinTarih" value="${new Date().toISOString().split('T')[0]}"></div><div class="form-grup"><label>Açıklama</label><input type="text" id="izinAciklama" placeholder="Neden izin kullanıyorsunuz?"></div><button type="button" class="btn btn-mor" onclick="izinTalepEt()">Talebi Gönder</button><button type="button" class="btn btn-link" onclick="document.getElementById('izinModal').remove()">İptal</button></div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+async function izinTalepEt() {
+  const s = parseInt(document.getElementById('izinSaat').value || 0);
+  const d = parseInt(document.getElementById('izinDakika').value || 0);
+  const toplamDk = (s * 60) + d;
+  if (toplamDk <= 0) return toast("Geçerli süre girin.");
+  const { data: icaps } = await sb.from('icap_gorevleri').select('toplam_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
+  const { data: izins } = await sb.from('icap_izin_talepleri').select('talep_edilen_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
+  const bakiye = (icaps||[]).reduce((s,x)=>s+(x.toplam_dakika||0),0) - (izins||[]).reduce((s,x)=>s+(x.talep_edilen_dakika||0),0);
+  const eksiMi = toplamDk > bakiye;
+  if (eksiMi && mevcutPersonel.rol !== 'grup_amiri' && mevcutPersonel.rol !== 'super_admin') {
+    if(!confirm("Bakiyeniz yetersiz! Eksi bakiyeye düşecek. Sadece Grup Amiri onaylayabilir. Onaylıyor musunuz?")) return;
+  }
+  await sb.from('icap_izin_talepleri').insert([{ personel_id: mevcutPersonel.id, talep_edilen_dakika: toplamDk, izin_tarihi: document.getElementById('izinTarih').value, aciklama: document.getElementById('izinAciklama').value, eksi_bakiye_mi: eksiMi }]);
+  document.getElementById('izinModal').remove();
+  toast("İzin talebi gönderildi.", "basari");
+  logEkle("İzin Talebi Oluşturdu", `${s}s ${d}dk`);
+}
+
+async function hazirIcapciModalAc() {
+  let vardiyaSecimiHtml = '';
+  if (mevcutPersonel.rol !== 'vardiya_cavusu') {
+    vardiyaSecimiHtml = `<div class="form-grup"><label>Hangi Vardiya İçin Seçim Yapıyorsunuz?</label><select id="secVardiya" onchange="hazirPersonelleriGetir()"><option value="1">1. Vardiya</option><option value="2">2. Vardiya</option><option value="3">3. Vardiya</option></select></div>`;
+  } else {
+    vardiyaSecimiHtml = `<input type="hidden" id="secVardiya" value="${mevcutPersonel.vardiya}">`;
+  }
+
+  let html = `<div class="modal aktif" id="hazirModal"><div class="modal-content"><h3 style="margin-top:0;">Hazır İcapçı Seçimi</h3><p style="font-size:11px;color:#666;">48 saatlik istirahat dönemi için 1 Er ve 1 Şoför seçiniz.</p>${vardiyaSecimiHtml}<div id="hazirPersonelAlan"></div><button type="button" class="btn btn-primary" onclick="hazirKaydet()">Seçimi Onayla</button><button type="button" class="btn btn-link" onclick="document.getElementById('hazirModal').remove()">İptal</button></div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  hazirPersonelleriGetir();
+}
+
+async function hazirPersonelleriGetir() {
+  const vardiya = parseInt(document.getElementById('secVardiya').value);
+  const { data: personeller } = await sb.from('personel').select('*').eq('vardiya', vardiya);
+  const erler = personeller.filter(p => p.rol === 'itfaiye_eri');
+  const soforler = personeller.filter(p => p.rol === 'itfaiye_soforu');
+  document.getElementById('hazirPersonelAlan').innerHTML = `
+    <div class="form-grup"><label>İtfaiye Eri</label><select id="secEr">${erler.length ? erler.map(e=>`<option value="${e.id}">${e.ad_soyad}</option>`).join('') : '<option value="">Er bulunamadı</option>'}</select></div>
+    <div class="form-grup"><label>İtfaiye Şoförü</label><select id="secSofor">${soforler.length ? soforler.map(s=>`<option value="${s.id}">${s.ad_soyad}</option>`).join('') : '<option value="">Şoför bulunamadı</option>'}</select></div>
+  `;
+}
+
+async function hazirKaydet() {
+  const vardiya = parseInt(document.getElementById('secVardiya').value);
+  const erId = document.getElementById('secEr').value;
+  const soforId = document.getElementById('secSofor').value;
+  if(!erId || !soforId) return toast("Lütfen personel seçin.");
+  const simdi = new Date(); const bitis = new Date(simdi.getTime() + (48 * 60 * 60 * 1000));
+  await sb.from('hazir_icapcilar').insert([{ vardiya: vardiya, er_personel_id: erId, sofor_personel_id: soforId, baslangic_zamani: simdi.toISOString(), bitis_zamani: bitis.toISOString(), secen_cavus_id: mevcutPersonel.id }]);
+  document.getElementById('hazirModal').remove();
+  toast("Hazır icapçılar belirlendi.", "basari");
+  logEkle("Hazır İcapçı Seçti", `${vardiya}. Vardiya`);
 }
 
 // --- SÜPER ADMİN PANELİ MODALI ---
@@ -266,7 +375,6 @@ function adminPaneliAc() {
     <div style="display:flex; gap:10px; margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:10px;">
       <button type="button" class="btn btn-primary" onclick="adminTab('personel')" style="margin:0; width:auto;">👥 Personel Yönetimi</button>
       <button type="button" class="btn btn-mor" onclick="adminTab('ayarlar')" style="margin:0; width:auto;">⚙️ Sistem Ayarları</button>
-      <button type="button" class="btn btn-mavi" onclick="adminTab('loglar')" style="margin:0; width:auto;">📜 Log Kayıtları</button>
     </div>
 
     <div id="adminIcerik"></div>
@@ -350,30 +458,6 @@ async function adminTab(tab) {
       </div>
     `;
   }
-  else if (tab === 'loglar') {
-    const { data: loglar } = await sb.from('log_kayitlari').select('*').order('ne_zaman', { ascending: false }).limit(50);
-    let rows = '';
-    if(loglar) {
-      loglar.forEach(l => {
-        rows += `<tr>
-          <td style="padding:6px; border-bottom:1px solid #eee;">${new Date(l.ne_zaman).toLocaleString('tr-TR')}</td>
-          <td style="padding:6px; border-bottom:1px solid #eee;">${l.ad_soyad_snapshot || 'Sistem'}</td>
-          <td style="padding:6px; border-bottom:1px solid #eee;">${l.islem}</td>
-          <td style="padding:6px; border-bottom:1px solid #eee; font-size:11px;">${l.aciklama || ''}</td>
-        </tr>`;
-      });
-    }
-    el.innerHTML = `
-      <div style="overflow-x:auto;">
-        <table style="width:100%; border-collapse:collapse; font-size:12px;">
-          <thead><tr style="background:#eee; text-align:left;">
-            <th style="padding:8px;">Tarih</th><th style="padding:8px;">Kullanıcı</th><th style="padding:8px;">İşlem</th><th style="padding:8px;">Detay</th>
-          </tr></thead>
-          <tbody>${rows || '<tr><td colspan="4" style="padding:20px; text-align:center;">Henüz log kaydı yok.</td></tr>'}</tbody>
-        </table>
-      </div>
-    `;
-  }
 }
 
 // Admin İşlemleri
@@ -396,6 +480,7 @@ async function personelEkle() {
     toast("Hata: " + error.message);
   } else {
     toast("Personel başarıyla eklendi.", "basari");
+    logEkle("Personel Ekledi", ad);
     adminTab('personel');
   }
 }
@@ -404,7 +489,10 @@ async function personelSil(id) {
   if(!confirm("Bu personeli silmek istediğinize emin misiniz?")) return;
   const { error } = await sb.from('personel').delete().eq('id', id);
   if(error) toast("Hata: " + error.message);
-  else { toast("Personel silindi.", "basari"); adminTab('personel'); }
+  else { 
+    toast("Personel silindi.", "basari"); 
+    adminTab('personel'); 
+  }
 }
 
 async function ayarKaydet() {
@@ -416,65 +504,8 @@ async function ayarKaydet() {
   else {
     sistemAyar.aktif_vardiya = yeniVardiya;
     toast("Sistem ayarları güncellendi.", "basari");
+    logEkle("Vardiya Değiştirdi", `Yeni: ${yeniVardiya}. Vardiya`);
   }
-}
-
-// --- DİĞER FONKSİYONLAR (İZİN, HAZIR İCAPÇI, RAPOR) ---
-function izinModalAc() {
-  let html = `<div class="modal aktif" id="izinModal"><div class="modal-content"><h3 style="margin-top:0;color:#6a5590;">İzin Talebi</h3><div class="form-grup"><label>Süre (Saat)</label><input type="number" id="izinSaat" min="0" value="1"></div><div class="form-grup"><label>Dakika</label><input type="number" id="izinDakika" min="0" max="59" value="0"></div><div class="form-grup"><label>Tarih</label><input type="date" id="izinTarih" value="${new Date().toISOString().split('T')[0]}"></div><div class="form-grup"><label>Açıklama</label><input type="text" id="izinAciklama" placeholder="Neden izin kullanıyorsunuz?"></div><button type="button" class="btn btn-mor" onclick="izinTalepEt()">Talebi Gönder</button><button type="button" class="btn btn-link" onclick="document.getElementById('izinModal').remove()">İptal</button></div></div>`;
-  document.body.insertAdjacentHTML('beforeend', html);
-}
-
-async function izinTalepEt() {
-  const s = parseInt(document.getElementById('izinSaat').value || 0);
-  const d = parseInt(document.getElementById('izinDakika').value || 0);
-  const toplamDk = (s * 60) + d;
-  if (toplamDk <= 0) return toast("Geçerli süre girin.");
-  const { data: icaps } = await sb.from('icap_gorevleri').select('toplam_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
-  const { data: izins } = await sb.from('icap_izin_talepleri').select('talep_edilen_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
-  const bakiye = (icaps||[]).reduce((s,x)=>s+(x.toplam_dakika||0),0) - (izins||[]).reduce((s,x)=>s+(x.talep_edilen_dakika||0),0);
-  const eksiMi = toplamDk > bakiye;
-  if (eksiMi && mevcutPersonel.rol !== 'grup_amiri' && mevcutPersonel.rol !== 'super_admin') {
-    if(!confirm("Bakiyeniz yetersiz! Eksi bakiyeye düşecek. Sadece Grup Amiri onaylayabilir. Onaylıyor musunuz?")) return;
-  }
-  await sb.from('icap_izin_talepleri').insert([{ personel_id: mevcutPersonel.id, talep_edilen_dakika: toplamDk, izin_tarihi: document.getElementById('izinTarih').value, aciklama: document.getElementById('izinAciklama').value, eksi_bakiye_mi: eksiMi }]);
-  document.getElementById('izinModal').remove();
-  toast("İzin talebi gönderildi.", "basari");
-}
-
-async function hazirIcapciModalAc() {
-  let vardiyaSecimiHtml = '';
-  if (mevcutPersonel.rol !== 'vardiya_cavusu') {
-    vardiyaSecimiHtml = `<div class="form-grup"><label>Hangi Vardiya İçin Seçim Yapıyorsunuz?</label><select id="secVardiya" onchange="hazirPersonelleriGetir()"><option value="1">1. Vardiya</option><option value="2">2. Vardiya</option><option value="3">3. Vardiya</option></select></div>`;
-  } else {
-    vardiyaSecimiHtml = `<input type="hidden" id="secVardiya" value="${mevcutPersonel.vardiya}">`;
-  }
-
-  let html = `<div class="modal aktif" id="hazirModal"><div class="modal-content"><h3 style="margin-top:0;">Hazır İcapçı Seçimi</h3><p style="font-size:11px;color:#666;">48 saatlik istirahat dönemi için 1 Er ve 1 Şoför seçiniz.</p>${vardiyaSecimiHtml}<div id="hazirPersonelAlan"></div><button type="button" class="btn btn-primary" onclick="hazirKaydet()">Seçimi Onayla</button><button type="button" class="btn btn-link" onclick="document.getElementById('hazirModal').remove()">İptal</button></div></div>`;
-  document.body.insertAdjacentHTML('beforeend', html);
-  hazirPersonelleriGetir();
-}
-
-async function hazirPersonelleriGetir() {
-  const vardiya = parseInt(document.getElementById('secVardiya').value);
-  const { data: personeller } = await sb.from('personel').select('*').eq('vardiya', vardiya);
-  const erler = personeller.filter(p => p.rol === 'itfaiye_eri');
-  const soforler = personeller.filter(p => p.rol === 'itfaiye_soforu');
-  document.getElementById('hazirPersonelAlan').innerHTML = `
-    <div class="form-grup"><label>İtfaiye Eri</label><select id="secEr">${erler.length ? erler.map(e=>`<option value="${e.id}">${e.ad_soyad}</option>`).join('') : '<option value="">Er bulunamadı</option>'}</select></div>
-    <div class="form-grup"><label>İtfaiye Şoförü</label><select id="secSofor">${soforler.length ? soforler.map(s=>`<option value="${s.id}">${s.ad_soyad}</option>`).join('') : '<option value="">Şoför bulunamadı</option>'}</select></div>
-  `;
-}
-
-async function hazirKaydet() {
-  const vardiya = parseInt(document.getElementById('secVardiya').value);
-  const erId = document.getElementById('secEr').value;
-  const soforId = document.getElementById('secSofor').value;
-  if(!erId || !soforId) return toast("Lütfen personel seçin.");
-  const simdi = new Date(); const bitis = new Date(simdi.getTime() + (48 * 60 * 60 * 1000));
-  await sb.from('hazir_icapcilar').insert([{ vardiya: vardiya, er_personel_id: erId, sofor_personel_id: soforId, baslangic_zamani: simdi.toISOString(), bitis_zamani: bitis.toISOString(), secen_cavus_id: mevcutPersonel.id }]);
-  document.getElementById('hazirModal').remove();
-  toast("Hazır icapçılar belirlendi.", "basari");
 }
 
 async function raporCsvIndir() {
