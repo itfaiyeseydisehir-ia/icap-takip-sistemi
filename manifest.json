@@ -1,4 +1,6 @@
 {
+  "id": "/icap-takip-sistemi/",
+  "scope": "/icap-takip-sistemi/",
   "name": "Seydişehir İtfaiyesi İcap Takip",
   "short_name": "İcap Takip",
   "description": "Seydişehir İtfaiyesi personeli için icap takip, görev süresi ve izin yönetim sistemi.",
