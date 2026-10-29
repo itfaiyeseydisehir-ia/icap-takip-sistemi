@@ -256,10 +256,11 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   const kendiAktif = aktifler?.find(a => a.personel_id === mevcutPersonel.id);
 
   if (kendiAktif) {
-    gorevHtml += `<div class="kart gorev-kart">
-      ${baslikHtml('🟢', 'İcap Göreviniz Devam Ediyor', '<span class="rozet r-yesil">AKTİF</span>')}
-      <p class="alt-not">Başlama: ${saatYaz(kendiAktif.baslama_zamani)}</p>
-      <button type="button" class="btn btn-kirmizi" style="margin:0" onclick="icapBitir('${kendiAktif.id}')">⏹ İcap Görevini Bitir</button>
+    gorevHtml += `<div class="icap-kart aktif-gorev">
+      <div class="icap-ust"><div class="icap-ikon yesil"><span class="canli"></span></div>
+        <div><div class="icap-baslik">İcap Göreviniz Devam Ediyor</div><div class="icap-alt">Başlama: ${saatYaz(kendiAktif.baslama_zamani)}${kendiAktif.gorev_aciklamasi ? ' · ' + esc(kendiAktif.gorev_aciklamasi) : ''}</div></div></div>
+      <div class="zaman" data-baslama="${esc(kendiAktif.baslama_zamani)}">00:00:00</div>
+      <button type="button" class="icap-bitir" onclick="icapBitir('${kendiAktif.id}')">⏹ İCAP GÖREVİNİ BİTİR</button>
     </div>`;
   } else {
     let baslatabilir = true; let uyari = "";
@@ -271,11 +272,14 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     } else if (mevcutPersonel.vardiya) {
       if (mevcutPersonel.vardiya === sistemAyar.aktif_vardiya) { baslatabilir = false; uyari = "Şu an nöbetçi vardiyadasınız. Asli görevinizdesiniz."; }
     }
-    gorevHtml += `<div class="kart">
-      ${baslikHtml('🚒', 'Yeni İcap Görevi Başlat')}
+    const hizli = ['🔥 Yangın', '🚗 Trafik Kazası', '🆘 Kurtarma', '🌊 Su Baskını', '🐝 Arı / Hayvan', '📞 Diğer'];
+    gorevHtml += `<div class="icap-kart ${!baslatabilir ? 'kilitli' : ''}">
+      <div class="icap-ust"><div class="icap-ikon">🚨</div>
+        <div><div class="icap-baslik">Yeni İcap Görevi</div><div class="icap-alt">Görev türünü seçin, tek dokunuşla başlatın</div></div></div>
       ${!baslatabilir ? `<div class="uyari">⚠️ <span>${esc(uyari)}</span></div>` : ''}
-      <textarea id="gorevAciklama" placeholder="İcap görev açıklaması..." ${!baslatabilir ? 'disabled' : ''}></textarea>
-      <button type="button" class="btn btn-primary" style="margin:0" onclick="icapBaslat()" ${!baslatabilir ? 'disabled' : ''}>▶ İcap Görevini Başlat</button>
+      <div class="hizli-sec">${hizli.map(h => `<button type="button" class="hizli-btn" ${!baslatabilir ? 'disabled' : ''} onclick="hizliAciklama(this)">${h}</button>`).join('')}</div>
+      <textarea id="gorevAciklama" rows="2" placeholder="Açıklama (isteğe bağlı) — örn: Mahalle, adres..." ${!baslatabilir ? 'disabled' : ''}></textarea>
+      <button type="button" class="icap-baslat" onclick="icapBaslat()" ${!baslatabilir ? 'disabled' : ''}>▶ İCAP GÖREVİNİ BAŞLAT</button>
     </div>`;
 
     html += `<div class="kart">
@@ -334,7 +338,29 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   el.innerHTML = html;
   const gk = document.getElementById('icapGorevKart');
   if (gk) gk.innerHTML = gorevHtml;
+  sayacGuncelle();
 }
+
+// ---------- HIZLI İCAP YARDIMCILARI ----------
+function hizliAciklama(btn) {
+  const ta = document.getElementById('gorevAciklama');
+  if (!ta) return;
+  const secili = btn.classList.contains('secili');
+  document.querySelectorAll('.hizli-btn').forEach(b => b.classList.remove('secili'));
+  if (secili) { ta.value = ''; return; }
+  btn.classList.add('secili');
+  ta.value = btn.innerText.replace(/^[^\p{L}]+/u, '').trim();
+  if (navigator.vibrate) navigator.vibrate(15);
+}
+
+function sayacGuncelle() {
+  document.querySelectorAll('[data-baslama]').forEach(el => {
+    const sn = Math.max(0, Math.floor((Date.now() - new Date(el.dataset.baslama).getTime()) / 1000));
+    const p = n => String(n).padStart(2, '0');
+    el.innerText = `${p(Math.floor(sn / 3600))}:${p(Math.floor((sn % 3600) / 60))}:${p(sn % 60)}`;
+  });
+}
+setInterval(sayacGuncelle, 1000);
 
 // ---------- İŞLEMLER ----------
 async function icapBaslat() {
