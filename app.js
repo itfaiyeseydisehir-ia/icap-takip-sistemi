@@ -243,6 +243,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   const rol = mevcutPersonel.rol;
   let html = '';
   let bekleyenSayi = 0;
+  let gorevHtml = '';
 
   if (rol === 'super_admin') {
     html += `<div class="kart admin-kart">
@@ -255,7 +256,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   const kendiAktif = aktifler?.find(a => a.personel_id === mevcutPersonel.id);
 
   if (kendiAktif) {
-    html += `<div class="kart gorev-kart">
+    gorevHtml += `<div class="kart gorev-kart">
       ${baslikHtml('🟢', 'İcap Göreviniz Devam Ediyor', '<span class="rozet r-yesil">AKTİF</span>')}
       <p class="alt-not">Başlama: ${saatYaz(kendiAktif.baslama_zamani)}</p>
       <button type="button" class="btn btn-kirmizi" style="margin:0" onclick="icapBitir('${kendiAktif.id}')">⏹ İcap Görevini Bitir</button>
@@ -270,8 +271,8 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     } else if (mevcutPersonel.vardiya) {
       if (mevcutPersonel.vardiya === sistemAyar.aktif_vardiya) { baslatabilir = false; uyari = "Şu an nöbetçi vardiyadasınız. Asli görevinizdesiniz."; }
     }
-    html += `<div class="kart">
-      ${baslikHtml('🚒', 'Yeni İcap Görevi')}
+    gorevHtml += `<div class="kart">
+      ${baslikHtml('🚒', 'Yeni İcap Görevi Başlat')}
       ${!baslatabilir ? `<div class="uyari">⚠️ <span>${esc(uyari)}</span></div>` : ''}
       <textarea id="gorevAciklama" placeholder="İcap görev açıklaması..." ${!baslatabilir ? 'disabled' : ''}></textarea>
       <button type="button" class="btn btn-primary" style="margin:0" onclick="icapBaslat()" ${!baslatabilir ? 'disabled' : ''}>▶ İcap Görevini Başlat</button>
@@ -331,6 +332,8 @@ async function rolIcerikCiz(aktifler, hazirlar) {
 
   document.getElementById('kpiBekleyen').innerText = ['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol) ? bekleyenSayi : '–';
   el.innerHTML = html;
+  const gk = document.getElementById('icapGorevKart');
+  if (gk) gk.innerHTML = gorevHtml;
 }
 
 // ---------- İŞLEMLER ----------
