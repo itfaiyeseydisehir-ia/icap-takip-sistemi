@@ -155,7 +155,7 @@ async function panelYukle() {
       </tr>`;
     });
     aHtml = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Personel</th><th>Görev</th><th>Başlama</th><th class="sag">Süre</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-  } else { aHtml = '<div class="bos">Şu an icapte personel yok.</div>'; }
+  } else { aHtml = '<div class="bos">Şu an icapta personel yok.</div>'; }
   document.getElementById('aktifIcapListe').innerHTML = aHtml;
 
   // Hazır icapçılar
@@ -272,7 +272,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     } else if (mevcutPersonel.vardiya) {
       if (mevcutPersonel.vardiya === sistemAyar.aktif_vardiya) { baslatabilir = false; uyari = "Şu an nöbetçi vardiyadasınız. Asli görevinizdesiniz."; }
     }
-    const hizli = ['🔥 Yangın', '🚗 Trafik Kazası', '🆘 Kurtarma', '🌊 Su Baskını', '🐝 Arı / Hayvan', '📞 Diğer'];
+    const hizli = ['🔥 Yangın', '🚗 Trafik Kazası', '🆘 Arama Kurtarma', '🌊 Su Baskını', 'Hayvan Kurtarma', '📞 Diğer'];
     gorevHtml += `<div class="icap-kart ${!baslatabilir ? 'kilitli' : ''}">
       <div class="icap-ust"><div class="icap-ikon">🚨</div>
         <div><div class="icap-baslik">Yeni İcap Görevi</div><div class="icap-alt">Görev türünü seçin, tek dokunuşla başlatın</div></div></div>
@@ -407,7 +407,7 @@ function izinModalAc() {
       <div class="form-grup"><label>Dakika</label><input type="number" id="izinDakika" min="0" max="59" value="0"></div>
     </div>
     <div class="form-grup"><label>Tarih</label><input type="date" id="izinTarih" value="${new Date().toISOString().split('T')[0]}"></div>
-    <div class="form-grup"><label>Açıklama</label><input type="text" id="izinAciklama" placeholder="Neden izin kullanıyorsunuz?"></div>
+    <div class="form-grup"><label>Açıklama</label><input type="text" id="izinAciklama" placeholder="İzin Açıklaması?"></div>
     <button type="button" class="btn btn-mor" onclick="izinTalepEt()">Talebi Gönder</button>
     <button type="button" class="btn btn-link" onclick="document.getElementById('izinModal').remove()">İptal</button>
   </div></div>`;
