@@ -181,6 +181,16 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 .sil-btn{background:none;color:var(--red);padding:6px 8px;border-radius:8px;font-size:15px}
 .sil-btn:hover{background:var(--red-soft)}
 
+/* ---------- YENİ DÜZEN ---------- */
+.kpi.buyuk{text-align:center;padding:26px 18px}
+.kpi.buyuk .kpi-deger{font-size:72px;line-height:1;margin:10px 0 6px}
+.kpi.buyuk .kpi-etiket{font-size:12px}
+.kpi.genis{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.kpi.genis .kpi-deger{margin:0;font-size:24px;white-space:nowrap}
+.kpi-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.kpi-grid-2 .kpi-deger{font-size:22px}
+@media(max-width:360px){.kpi-grid-2{grid-template-columns:1fr}}
+
 /* ---------- TOAST ---------- */
 #toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,20px);background:#333;color:#fff;padding:12px 20px;border-radius:12px;opacity:0;transition:.3s;z-index:9999;font-weight:600;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.3);max-width:90%;pointer-events:none}
 #toast.gorunur{opacity:1;transform:translate(-50%,0)}
@@ -253,20 +263,40 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
   </div>
 
   <div class="ana-icerik">
-    <!-- KPI -->
-    <div class="kpi-grid" style="margin-bottom:16px">
-      <div class="kpi hero"><div class="kpi-etiket"><span class="canli"></span>Aktif İcap</div><div class="kpi-deger" id="aktifIcapSayisi">0</div><div class="kpi-alt">şu an görevde</div></div>
-      <div class="kpi" style="--c:var(--blue)"><div class="kpi-etiket">Aktif Vardiya</div><div class="kpi-deger" id="kpiVardiya">–</div><div class="kpi-alt">nöbetçi ekip</div></div>
-      <div class="kpi" style="--c:var(--green)"><div class="kpi-etiket">Kalan Bakiyem</div><div class="kpi-deger" id="kpiBakiye">–</div><div class="kpi-alt">icap / izin</div></div>
-      <div class="kpi" style="--c:var(--amber)"><div class="kpi-etiket">Bekleyen Onay</div><div class="kpi-deger" id="kpiBekleyen">–</div><div class="kpi-alt">işlem</div></div>
-    </div>
-
     <div class="dashboard">
       <div class="col">
+        <!-- 1. AKTİF İCAP GÖREVLİ (büyük rakam) -->
+        <div class="kpi hero buyuk">
+          <div class="kpi-etiket"><span class="canli"></span>Aktif İcap Görevli</div>
+          <div class="kpi-deger" id="aktifIcapSayisi">0</div>
+          <div class="kpi-alt">şu an görevde</div>
+        </div>
+
+        <!-- 2. AKTİF İCAP GÖREVİNDEKİ PERSONEL -->
         <div class="kart">
-          <div class="kart-baslik"><div class="kart-baslik-simge">🟢</div>Şu An Görevde Olanlar</div>
+          <div class="kart-baslik"><div class="kart-baslik-simge">🟢</div>Aktif İcap Görevindeki Personel</div>
           <div id="aktifIcapListe"></div>
         </div>
+
+        <!-- 3. NÖBETÇİ VARDİYA -->
+        <div class="kpi genis" style="--c:var(--blue)">
+          <div>
+            <div class="kpi-etiket">Nöbetçi Vardiya</div>
+            <div class="kpi-alt">şu an nöbetçi ekip</div>
+          </div>
+          <div class="kpi-deger" id="kpiVardiya">–</div>
+        </div>
+
+        <!-- 4. YENİ İCAP GÖREVİ BAŞLAT -->
+        <div id="icapGorevKart"></div>
+
+        <!-- 5. BAKİYE + BEKLEYEN ONAY -->
+        <div class="kpi-grid-2">
+          <div class="kpi" style="--c:var(--green)"><div class="kpi-etiket">Kalan Bakiyem</div><div class="kpi-deger" id="kpiBakiye">–</div><div class="kpi-alt">icap / izin</div></div>
+          <div class="kpi" style="--c:var(--amber)"><div class="kpi-etiket">Bekleyen Onay</div><div class="kpi-deger" id="kpiBekleyen">–</div><div class="kpi-alt">işlem</div></div>
+        </div>
+
+        <!-- 6. GERİSİ -->
         <div id="rolIcerik" class="col"></div>
       </div>
       <div class="col">
