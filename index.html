@@ -293,20 +293,17 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
   <div class="ana-icerik">
     <div class="dashboard">
       <div class="col">
-        <!-- 1. AKTİF İCAP GÖREVLİ (büyük rakam) -->
         <div class="kpi hero buyuk">
           <div class="kpi-etiket"><span class="canli"></span>Aktif İcap Görevli</div>
           <div class="kpi-deger" id="aktifIcapSayisi">0</div>
           <div class="kpi-alt">şu an görevde</div>
         </div>
 
-        <!-- 2. AKTİF İCAP GÖREVİNDEKİ PERSONEL -->
         <div class="kart">
           <div class="kart-baslik"><div class="kart-baslik-simge">🟢</div>Aktif İcap Görevindeki Personel</div>
           <div id="aktifIcapListe"></div>
         </div>
 
-        <!-- 3. NÖBETÇİ VARDİYA -->
         <div class="kpi genis" style="--c:var(--blue)">
           <div>
             <div class="kpi-etiket">Nöbetçi Vardiya</div>
@@ -315,16 +312,13 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
           <div class="kpi-deger" id="kpiVardiya">–</div>
         </div>
 
-        <!-- 4. YENİ İCAP GÖREVİ BAŞLAT -->
         <div id="icapGorevKart"></div>
 
-        <!-- 5. BAKİYE + BEKLEYEN ONAY -->
         <div class="kpi-grid-2">
           <div class="kpi" style="--c:var(--green)"><div class="kpi-etiket">Kalan Bakiyem</div><div class="kpi-deger" id="kpiBakiye">–</div><div class="kpi-alt">icap / izin</div></div>
           <div class="kpi" style="--c:var(--amber)"><div class="kpi-etiket">Bekleyen Onay</div><div class="kpi-deger" id="kpiBekleyen">–</div><div class="kpi-alt">işlem</div></div>
         </div>
 
-        <!-- 6. GERİSİ -->
         <div id="rolIcerik" class="col"></div>
       </div>
       <div class="col">
@@ -342,5 +336,17 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 </div>
 
 <script src="app.js"></script>
+<script>
+  // PWA Service Worker Kaydı (PWABuilder için gerekli)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').then(registration => {
+        console.log('ServiceWorker kaydı başarılı:', registration.scope);
+      }).catch(error => {
+        console.log('ServiceWorker kaydı başarısız:', error);
+      });
+    });
+  }
+</script>
 </body>
 </html>
