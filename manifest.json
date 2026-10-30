@@ -14,7 +14,13 @@
   "icons": [
     {
       "src": "itslogoilk.png",
-      "sizes": "192x192 512x512 1024x1024",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "itslogoilk.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     }
