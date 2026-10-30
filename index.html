@@ -31,6 +31,22 @@ button{-webkit-appearance:none;border:none;cursor:pointer}
 .ekran{display:none}.ekran.aktif{display:block}
 .ekran-orta{display:none;min-height:100vh}.ekran-orta.aktif{display:flex}
 
+/* ---------- AÇILIŞ EKRANI (SPLASH) ---------- */
+#splash-screen {
+  position: fixed; inset: 0; background-color: #ffffff; z-index: 99999;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.6s ease-in-out;
+}
+#splash-screen img {
+  width: 80%; max-width: 320px; height: auto;
+  animation: logoParlama 2s infinite alternate;
+}
+@keyframes logoParlama {
+  from { transform: scale(1); }
+  to { transform: scale(1.04); }
+}
+#splash-screen.gizle { opacity: 0; pointer-events: none; }
+
 /* ---------- GİRİŞ ---------- */
 .auth{width:100%;display:flex;min-height:100vh}
 .auth-brand{flex:1.1;background:radial-gradient(1200px 600px at 0% 0%,#26394f 0%,var(--navy) 60%);color:#fff;padding:56px;display:none;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
@@ -233,6 +249,12 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 </style>
 </head>
 <body>
+
+<!-- AÇILIŞ EKRANI -->
+<div id="splash-screen">
+  <img src="itslogoilk.png" alt="Seydişehir İtfaiyesi">
+</div>
+
 <div id="toast"></div>
 
 <!-- GİRİŞ -->
@@ -347,6 +369,17 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
       });
     });
   }
+
+  // 3 Saniyelik Açılış Ekranı Kontrolü
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const splash = document.getElementById('splash-screen');
+      if(splash) {
+        splash.classList.add('gizle'); // Yumuşak geçişle şeffaf yap
+        setTimeout(() => splash.remove(), 600); // Animasyon bitince tamamen sil
+      }
+    }, 3000); // 3000 ms = 3 saniye
+  });
 </script>
 </body>
 </html>
