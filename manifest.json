@@ -13,14 +13,10 @@
   "dir": "ltr",
   "icons": [
     {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "src": "itslogoilk.png",
+      "sizes": "192x192 512x512 1024x1024",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "shortcuts": [
@@ -28,22 +24,19 @@
       "name": "🔥 Yangın İcabı Başlat",
       "short_name": "Yangın İcabı",
       "description": "Hızlıca yangın icabı başlatır",
-      "url": "./index.html?hizli=yangin",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+      "url": "./index.html?hizli=yangin"
     },
     {
       "name": "🚗 Trafik Kazası Başlat",
       "short_name": "Trafik Kazası",
       "description": "Hızlıca trafik kazası icabı başlatır",
-      "url": "./index.html?hizli=kaza",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+      "url": "./index.html?hizli=kaza"
     },
     {
       "name": "🆘 Kurtarma Başlat",
       "short_name": "Kurtarma",
       "description": "Hızlıca kurtarma icabı başlatır",
-      "url": "./index.html?hizli=kurtarma",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+      "url": "./index.html?hizli=kurtarma"
     }
   ]
 }
