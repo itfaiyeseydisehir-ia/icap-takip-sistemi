@@ -273,9 +273,9 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       if (mevcutPersonel.vardiya === sistemAyar.aktif_vardiya) { baslatabilir = false; uyari = "Şu an nöbetçi vardiyadasınız. Asli görevinizdesiniz."; }
     }
     const hizli = [
-  '<img src="yangin.png" style="height:24px; vertical-align:middle; margin-right:6px;"> Yangın', 
-  '<img src="kask.png" style="height:24px; vertical-align:middle; margin-right:2px;"><img src="konum.png" style="height:24px; vertical-align:middle; margin-right:6px;"> Arama Kurtarma', 
-  '<img src="kilit.png" style="height:20px; vertical-align:middle; margin-right:2px;"><img src="pompa.png" style="height:20px; vertical-align:middle; margin-right:4px;"> <br> Diğer Görevler'
+  '<img src="yangin.png" style="height:32px; display:block; margin:0 auto 4px auto; object-fit:contain;"> Yangın', 
+  '<img src="kask.png" style="height:32px; display:block; margin:0 auto 4px auto; object-fit:contain;"> Arama<br>Kurtarma', 
+  '<img src="dalgic.png" style="height:32px; display:block; margin:0 auto 4px auto; object-fit:contain;"> Diğer<br>Görevler'
 ];
     gorevHtml += `<div class="icap-kart ${!baslatabilir ? 'kilitli' : ''}">
       <div class="icap-ust"><div class="icap-ikon">🚨</div>
