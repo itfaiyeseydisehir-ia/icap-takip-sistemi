@@ -370,7 +370,7 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
     });
   }
 
-  // 3 Saniyelik Açılış Ekranı Kontrolü
+  // 4 Saniyelik Açılış Ekranı Kontrolü
   window.addEventListener('load', () => {
     setTimeout(() => {
       const splash = document.getElementById('splash-screen');
@@ -378,7 +378,7 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
         splash.classList.add('gizle'); // Yumuşak geçişle şeffaf yap
         setTimeout(() => splash.remove(), 600); // Animasyon bitince tamamen sil
       }
-    }, 3000); // 3000 ms = 3 saniye
+    }, 4000); // 4000 ms = 4 saniye
   });
 </script>
 </body>
