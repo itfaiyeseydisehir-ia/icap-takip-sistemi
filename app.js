@@ -462,11 +462,22 @@ async function hazirPersonelleriGetir() {
   const vardiya = parseInt(document.getElementById('secVardiya').value);
   const { data: personeller } = await sb.from('personel').select('*').eq('vardiya', vardiya);
   const liste = personeller || [];
-  const erler = liste.filter(p => p.rol === 'itfaiye_eri');
+  
+  // Çavuş, Amiri, Er... Şoför olmayan herkes "Er" listesine eklensin
+  const erler = liste.filter(p => p.rol !== 'itfaiye_soforu');
   const soforler = liste.filter(p => p.rol === 'itfaiye_soforu');
+  
   document.getElementById('hazirPersonelAlan').innerHTML = `
-    <div class="form-grup"><label>İtfaiye Eri</label><select id="secEr">${erler.length ? erler.map(e => `<option value="${e.id}">${esc(e.ad_soyad)}</option>`).join('') : '<option value="">Er bulunamadı</option>'}</select></div>
-    <div class="form-grup"><label>İtfaiye Şoförü</label><select id="secSofor">${soforler.length ? soforler.map(s => `<option value="${s.id}">${esc(s.ad_soyad)}</option>`).join('') : '<option value="">Şoför bulunamadı</option>'}</select></div>`;
+    <div class="form-grup"><label>İtfaiye Eri / Çavuş / Amiri</label>
+      <select id="secEr">
+        ${erler.length ? erler.map(e => `<option value="${e.id}">${esc(e.ad_soyad)} (${esc(rolAd(e.rol))})</option>`).join('') : '<option value="">Personel bulunamadı</option>'}
+      </select>
+    </div>
+    <div class="form-grup"><label>İtfaiye Şoförü</label>
+      <select id="secSofor">
+        ${soforler.length ? soforler.map(s => `<option value="${s.id}">${esc(s.ad_soyad)}</option>`).join('') : '<option value="">Şoför bulunamadı</option>'}
+      </select>
+    </div>`;
 }
 
 async function hazirKaydet() {
