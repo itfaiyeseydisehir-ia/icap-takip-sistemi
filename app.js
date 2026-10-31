@@ -499,12 +499,30 @@ async function hazirKaydet() {
   const erId = document.getElementById('secEr').value;
   const soforId = document.getElementById('secSofor').value;
   if (!erId || !soforId) return toast("Lütfen personel seçin.");
-  const simdi = new Date(); const bitis = new Date(simdi.getTime() + (48 * 60 * 60 * 1000));
-  await sb.from('hazir_icapcilar').insert([{ vardiya: vardiya, er_personel_id: erId, sofor_personel_id: soforId, baslangic_zamani: simdi.toISOString(), bitis_zamani: bitis.toISOString(), secen_cavus_id: mevcutPersonel.id }]);
+  
+  const simdi = new Date(); 
+  const bitis = new Date(simdi.getTime() + (48 * 60 * 60 * 1000));
+
+  // 1. AYNI VARDİYAYA AİT ESKİ AKTİF HAZIR İCAPÇILARI İPTAL ET
+  await sb.from('hazir_icapcilar')
+    .update({ durum: 'iptal' })
+    .eq('vardiya', vardiya)
+    .eq('durum', 'aktif');
+
+  // 2. YENİ SEÇİMİ KAYDET
+  await sb.from('hazir_icapcilar').insert([{ 
+    vardiya: vardiya, 
+    er_personel_id: erId, 
+    sofor_personel_id: soforId, 
+    baslangic_zamani: simdi.toISOString(), 
+    bitis_zamani: bitis.toISOString(), 
+    secen_cavus_id: mevcutPersonel.id 
+  }]);
+
   document.getElementById('hazirModal').remove();
   toast("Hazır icapçılar belirlendi.", "basari");
   await logEkle("Hazır İcapçı Seçti", `${vardiya}. Vardiya`);
-  panelYukle(); // Ekranı güncelle
+  panelYukle(); // Ekranı anında güncelle
 }
 
 // ---------- SÜPER ADMİN PANELİ ----------
