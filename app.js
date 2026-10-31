@@ -272,7 +272,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     } else if (mevcutPersonel.vardiya) {
       if (mevcutPersonel.vardiya === sistemAyar.aktif_vardiya) { baslatabilir = false; uyari = "Şu an nöbetçi vardiyadasınız. Asli görevinizdesiniz."; }
     }
-    const hizli = ['🔥 Yangın', '🚗 Trafik Kazası', '🆘 Arama Kurtarma', '🌊 Su Baskını', 'Hayvan Kurtarma', '📞 Diğer'];
+    const hizli = ['🔥 Yangın', '🆘 Arama Kurtarma', '📞 Diğer Görevler'];
     gorevHtml += `<div class="icap-kart ${!baslatabilir ? 'kilitli' : ''}">
       <div class="icap-ust"><div class="icap-ikon">🚨</div>
         <div><div class="icap-baslik">Yeni İcap Görevi</div><div class="icap-alt">Görev türünü seçin, tek dokunuşla başlatın</div></div></div>
