@@ -463,19 +463,24 @@ async function hazirPersonelleriGetir() {
   const { data: personeller } = await sb.from('personel').select('*').eq('vardiya', vardiya);
   const liste = personeller || [];
   
-  // Çavuş, Amiri, Er... Şoför olmayan herkes "Er" listesine eklensin
-  const erler = liste.filter(p => p.rol !== 'itfaiye_soforu');
-  const soforler = liste.filter(p => p.rol === 'itfaiye_soforu');
+  // 1. Grup Amiri'ni bu seçimden tamamen çıkar
+  const filtrelenmisListe = liste.filter(p => p.rol !== 'grup_amiri');
+  
+  // 2. Er Listesi: Şoför olmayan herkes (Er, Çavuş vb.)
+  const erler = filtrelenmisListe.filter(p => p.rol !== 'itfaiye_soforu');
+  
+  // 3. Şoför Listesi: Asıl şoförler + Çavuşlar (Gerekirse çavuş da şoförlük yapabilir)
+  const soforler = filtrelenmisListe.filter(p => p.rol === 'itfaiye_soforu' || p.rol === 'vardiya_cavusu');
   
   document.getElementById('hazirPersonelAlan').innerHTML = `
-    <div class="form-grup"><label>İtfaiye Eri / Çavuş / Amiri</label>
+    <div class="form-grup"><label>İtfaiye Eri / Çavuş</label>
       <select id="secEr">
         ${erler.length ? erler.map(e => `<option value="${e.id}">${esc(e.ad_soyad)} (${esc(rolAd(e.rol))})</option>`).join('') : '<option value="">Personel bulunamadı</option>'}
       </select>
     </div>
-    <div class="form-grup"><label>İtfaiye Şoförü</label>
+    <div class="form-grup"><label>İtfaiye Şoförü / Çavuş</label>
       <select id="secSofor">
-        ${soforler.length ? soforler.map(s => `<option value="${s.id}">${esc(s.ad_soyad)}</option>`).join('') : '<option value="">Şoför bulunamadı</option>'}
+        ${soforler.length ? soforler.map(s => `<option value="${s.id}">${esc(s.ad_soyad)} (${esc(rolAd(s.rol))})</option>`).join('') : '<option value="">Şoför bulunamadı</option>'}
       </select>
     </div>`;
 }
