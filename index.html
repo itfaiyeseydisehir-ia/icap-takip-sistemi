@@ -107,7 +107,7 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 /* ---------- DÜZEN ---------- */
 .ana-icerik{padding:20px 16px 40px;max-width:1180px;margin:0 auto}
 .dashboard{display:grid;grid-template-columns:1fr;gap:16px}
-@media(min-width:960px){.dashboard{grid-template-columns:1.55fr 1fr;align-items:start}}
+@media(min-width:960px){.dashboard{grid-template-columns:1.2fr 1fr;align-items:start}} /* Sol tarafı biraz daralttık */
 .col{display:flex;flex-direction:column;gap:16px;min-width:0}
 .kart{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow)}
 .kart-baslik{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px}
@@ -198,11 +198,11 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 .sil-btn:hover{background:var(--red-soft)}
 
 /* ---------- YENİ DÜZEN ---------- */
-.kpi.buyuk{text-align:center;padding:26px 18px}
-.kpi.buyuk .kpi-deger{font-size:72px;line-height:1;margin:10px 0 6px}
+.kpi.buyuk{text-align:center;padding:16px 18px;} /* Yüksekliği daralttık */
+.kpi.buyuk .kpi-deger{font-size:56px;line-height:1;margin:8px 0 4px} /* Rakamı küçülttük */
 .kpi.buyuk .kpi-etiket{font-size:12px}
-.kpi.genis{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.kpi.genis .kpi-deger{margin:0;font-size:24px;white-space:nowrap}
+.kpi.genis{display:flex;align-items:center;justify-content:space-between;gap:12px; padding: 12px 16px;} /* Padding'i daralttık */
+.kpi.genis .kpi-deger{margin:0;font-size:20px;white-space:nowrap} /* Vardiya yazısını küçülttük */
 .kpi-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .kpi-grid-2 .kpi-deger{font-size:22px}
 @media(max-width:360px){.kpi-grid-2{grid-template-columns:1fr}}
@@ -318,11 +318,11 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
       <div class="col">
         
         <!-- NÖBETÇİ EKİP (En üste alındı) -->
-        <div class="kpi genis" style="--c:var(--blue); margin-bottom: 4px;">
+        <div class="kpi genis" style="--c:var(--blue); margin-bottom: 4px; padding: 12px 16px;">
           <div>
-            <div class="kpi-etiket" style="font-size: 14px; font-weight: 800; letter-spacing: 0.5px;">NÖBETÇİ EKİP</div>
+            <div class="kpi-etiket" style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">NÖBETÇİ EKİP</div>
           </div>
-          <div class="kpi-deger" id="kpiVardiya" style="font-size: 28px;">–</div>
+          <div class="kpi-deger" id="kpiVardiya" style="font-size: 20px;">–</div>
         </div>
 
         <!-- AKTİF İCAP GÖREVLİ -->
