@@ -272,13 +272,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     } else if (mevcutPersonel.vardiya) {
       if (mevcutPersonel.vardiya === sistemAyar.aktif_vardiya) { baslatabilir = false; uyari = "Şu an nöbetçi vardiyadasınız. Asli görevinizdesiniz."; }
     }
-    const hizli = [
-  '<img src="yangin.png" style="height:36px; width:36px; object-fit:contain; border-radius:50%; background:#fff; padding:4px; margin-bottom:6px;"> Yangın', 
-  
-  '<img src="kask.png" style="height:36px; width:36px; object-fit:contain; border-radius:50%; background:#fff; padding:4px; margin-bottom:6px;"> Arama<br>Kurtarma', 
-  
-  '<img src="dalgic.png" style="height:36px; width:36px; object-fit:contain; border-radius:50%; background:#fff; padding:4px; margin-bottom:6px;"> Diğer<br>Görevler'
-];
+    const hizli = ['🔥 Yangın', '🆘 Arama Kurtarma', '🚰 Diğer Görevler'];
     gorevHtml += `<div class="icap-kart ${!baslatabilir ? 'kilitli' : ''}">
       <div class="icap-ust"><div class="icap-ikon">🚨</div>
         <div><div class="icap-baslik">Yeni İcap Görevi</div><div class="icap-alt">Görev türünü seçin, tek dokunuşla başlatın</div></div></div>
@@ -466,11 +460,11 @@ async function hazirPersonelleriGetir() {
   // 1. Grup Amiri'ni bu seçimden tamamen çıkar
   const filtrelenmisListe = liste.filter(p => p.rol !== 'grup_amiri');
   
-  // 2. Er Listesi: Şoför olmayan herkes (Er, Çavuş vb.)
-  const erler = filtrelenmisListe.filter(p => p.rol !== 'itfaiye_soforu');
+  // 2. Er Listesi: Niteliği 'er' olanlar (Çavuş olsa bile listede çıkar)
+  const erler = filtrelenmisListe.filter(p => p.nitelik === 'er' || p.rol === 'itfaiye_eri' || p.rol === 'vardiya_cavusu');
   
-  // 3. Şoför Listesi: Asıl şoförler + Çavuşlar (Gerekirse çavuş da şoförlük yapabilir)
-  const soforler = filtrelenmisListe.filter(p => p.rol === 'itfaiye_soforu' || p.rol === 'vardiya_cavusu');
+  // 3. Şoför Listesi: Niteliği 'sofor' olanlar
+  const soforler = filtrelenmisListe.filter(p => p.nitelik === 'sofor' || p.rol === 'itfaiye_soforu');
   
   document.getElementById('hazirPersonelAlan').innerHTML = `
     <div class="form-grup"><label>İtfaiye Eri / Çavuş</label>
@@ -526,10 +520,12 @@ async function adminTab(tab) {
     (personeller || []).forEach(p => {
       const vardiyaAd = p.vardiya ? p.vardiya + ". Vardiya" : "Gündüz";
       const durum = p.auth_user_id ? '<span class="rozet r-yesil">Aktif</span>' : '<span class="rozet r-turuncu">Kayıt Bekliyor</span>';
+      const nitelikAd = p.nitelik === 'sofor' ? '🚛 Şoför' : (p.nitelik === 'er' ? '👨‍🚒 Er' : '');
+      
       rows += `<tr>
         <td class="hucre-isim">${esc(p.ad_soyad)}</td>
         <td>${esc(p.email)}</td>
-        <td>${rolRozet(p.rol)}</td>
+        <td>${rolRozet(p.rol)} <br><small style="color:#666">${nitelikAd}</small></td>
         <td>${vardiyaAd}</td>
         <td>${durum}</td>
         <td class="sag"><button type="button" class="sil-btn" onclick="personelSil('${p.id}')" title="Sil">🗑️</button></td>
@@ -542,7 +538,7 @@ async function adminTab(tab) {
         <div class="form-satir" style="margin-top:12px">
           <div class="form-grup"><label>Ad Soyad</label><input type="text" id="addAd" placeholder="Örn: Ahmet Yılmaz"></div>
           <div class="form-grup"><label>E-posta</label><input type="email" id="addEmail" placeholder="ahmet@gmail.com"></div>
-          <div class="form-grup"><label>Rol</label>
+          <div class="form-grup"><label>Rol (Yetki)</label>
             <select id="addRol">
               <option value="itfaiye_eri">İtfaiye Eri</option>
               <option value="itfaiye_soforu">İtfaiye Şoförü</option>
@@ -551,6 +547,13 @@ async function adminTab(tab) {
               <option value="gunduz_85">Gündüz 8/5</option>
               <option value="gunduz_816">Gündüz 8/16</option>
               <option value="super_admin">Süper Admin</option>
+            </select>
+          </div>
+          <div class="form-grup"><label>Görev Niteliği</label>
+            <select id="addNitelik">
+              <option value="er">Er</option>
+              <option value="sofor">Şoför</option>
+              <option value="yok">Yok (İdari)</option>
             </select>
           </div>
           <div class="form-grup"><label>Vardiya</label>
@@ -564,7 +567,7 @@ async function adminTab(tab) {
         </div>
         <button type="button" class="btn btn-success" style="margin:0;width:auto" onclick="personelEkle()">➕ Personeli Kaydet</button>
       </div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Rol</th><th>Vardiya</th><th>Durum</th><th class="sag">Sil</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Rol / Nitelik</th><th>Vardiya</th><th>Durum</th><th class="sag">Sil</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   } else if (tab === 'ayarlar') {
     el.innerHTML = `
       <div class="panel-kutu">
@@ -589,9 +592,19 @@ async function personelEkle() {
   const ad = document.getElementById('addAd').value;
   const email = document.getElementById('addEmail').value;
   const rol = document.getElementById('addRol').value;
+  const nitelik = document.getElementById('addNitelik').value;
   const vardiya = document.getElementById('addVardiya').value;
+  
   if (!ad || !email) return toast("Lütfen tüm alanları doldurun.");
-  const { error } = await sb.from('personel').insert([{ ad_soyad: ad, email: email, rol: rol, vardiya: vardiya ? parseInt(vardiya) : null }]);
+  
+  const { error } = await sb.from('personel').insert([{ 
+    ad_soyad: ad, 
+    email: email, 
+    rol: rol, 
+    nitelik: nitelik, 
+    vardiya: vardiya ? parseInt(vardiya) : null 
+  }]);
+  
   if (error) toast("Hata: " + error.message);
   else { toast("Personel başarıyla eklendi.", "basari"); await logEkle("Personel Ekledi", ad); adminTab('personel'); }
 }
