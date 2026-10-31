@@ -158,15 +158,8 @@ async function panelYukle() {
   } else { aHtml = '<div class="bos">Şu an icapta personel yok.</div>'; }
   document.getElementById('aktifIcapListe').innerHTML = aHtml;
 
-  // Hazır icapçılar
+  // Hazır icapçılar (Sadece rolIcerikCiz'e gönderilmek üzere çekiliyor)
   const { data: hazirlar } = await sb.from('hazir_icapcilar').select('*, er:er_personel_id(ad_soyad), sofor:sofor_personel_id(ad_soyad)').eq('durum', 'aktif').gte('bitis_zamani', new Date().toISOString());
-  let hHtml = '';
-  if (hazirlar && hazirlar.length > 0) {
-    hazirlar.forEach(h => {
-      hHtml += `<div class="ekip"><div class="ekip-no">${esc(h.vardiya)}</div><div><b>${esc(h.vardiya)}. Vardiya İstirahat Ekibi</b><small>👨‍🚒 ${esc(h.er.ad_soyad)} &nbsp;·&nbsp; 🚛 ${esc(h.sofor.ad_soyad)}</small></div></div>`;
-    });
-  } else { hHtml = '<div class="bos">Aktif hazır icapçı ekibi bulunmuyor.</div>'; }
-  document.getElementById('hazirIcapcilarKart').innerHTML = `<div class="kart">${baslikHtml('🚨', 'Hazır İcapçı Ekibi')}${hHtml}</div>`;
 
   // Bakiye
   const { data: icapGecmis } = await sb.from('icap_gorevleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('baslama_zamani', { ascending: false });
@@ -288,11 +281,30 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     </div>`;
   }
 
-  // Hazır İcapçı Seçimi kutusunu Yeni İcap Görevi'nin hemen altına (gorevHtml içine) ekliyoruz
+  // Hazır İcapçı Seçimi kutusunu Yeni İcap Görevi'nin hemen altına ekliyoruz (Seçilenlerle birlikte)
   if (['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol)) {
+    let secilenlerHtml = '';
+    // Sadece o vardiyanın veya yetkiliyse tüm hazır icapçıları filtrele
+    const ilgiliHazirlar = hazirlar?.filter(h => {
+      if (rol === 'vardiya_cavusu') return h.vardiya === mevcutPersonel.vardiya;
+      return true; // Amiri ve Admin için tüm hazırları göster
+    });
+
+    if (ilgiliHazirlar && ilgiliHazirlar.length > 0) {
+      ilgiliHazirlar.forEach(h => {
+        secilenlerHtml += `<div style="background:#eef6f1; border:1px solid #c7ead5; border-radius:8px; padding:10px; margin-bottom:8px;">
+          <div style="font-size:12px; font-weight:800; color:var(--green); margin-bottom:4px;">${h.vardiya}. Vardiya İstirahat Ekibi</div>
+          <div style="font-size:13px; color:#18202b;">👨‍🚒 ${esc(h.er.ad_soyad)}</div>
+          <div style="font-size:13px; color:#18202b; margin-top:2px;">🚛 ${esc(h.sofor.ad_soyad)}</div>
+        </div>`;
+      });
+    } else {
+      secilenlerHtml = `<p class="alt-not" style="margin-bottom:10px;">İstirahat dönemi için 1 Er ve 1 Şoför seçin.</p>`;
+    }
+
     gorevHtml += `<div class="kart" style="margin-top:16px;">${baslikHtml('🚨', 'Hazır İcapçı Seçimi')}
-      <p class="alt-not">İstirahat dönemi için 1 Er ve 1 Şoför seçin.</p>
-      <button type="button" class="btn btn-mavi" style="margin:0" onclick="hazirIcapciModalAc()">Personel Seç</button>
+      ${secilenlerHtml}
+      <button type="button" class="btn btn-mavi" style="margin:0" onclick="hazirIcapciModalAc()">${ilgiliHazirlar?.length > 0 ? 'Seçimi Değiştir' : 'Personel Seç'}</button>
     </div>`;
   }
 
@@ -370,7 +382,7 @@ async function icapBaslat() {
   const aciklama = document.getElementById('gorevAciklama').value;
   const { error } = await sb.from('icap_gorevleri').insert([{ personel_id: mevcutPersonel.id, vardiya: mevcutPersonel.vardiya, gorev_aciklamasi: aciklama, durum: 'aktif' }]);
   if (error) toast("Hata: " + error.message);
-  else { toast("İcap başlatıldı", "basari"); await logEkle("İcap Başlattı", aciklama); }
+  else { toast("İcap başlatıldı", "basari"); await logEkle("İcap Başlattı", aciklama); panelYukle(); }
 }
 
 async function icapBitir(id) {
@@ -380,7 +392,7 @@ async function icapBitir(id) {
   const otomatikOnay = ['grup_amiri', 'vardiya_cavusu', 'super_admin'].includes(mevcutPersonel.rol);
   const { error } = await sb.from('icap_gorevleri').update({ bitis_zamani: new Date().toISOString(), toplam_dakika: dk, durum: otomatikOnay ? 'onaylandi' : 'onay_bekliyor', onaylayan_id: otomatikOnay ? mevcutPersonel.id : null, onay_zamani: otomatikOnay ? new Date().toISOString() : null }).eq('id', id);
   if (error) toast("Hata: " + error.message);
-  else { toast("İcap bitirildi", "basari"); await logEkle("İcabı Bitirdi", `Süre: ${dk} dk`); }
+  else { toast("İcap bitirildi", "basari"); await logEkle("İcabı Bitirdi", `Süre: ${dk} dk`); panelYukle(); }
 }
 
 async function onayla(id, tip) {
@@ -492,6 +504,7 @@ async function hazirKaydet() {
   document.getElementById('hazirModal').remove();
   toast("Hazır icapçılar belirlendi.", "basari");
   await logEkle("Hazır İcapçı Seçti", `${vardiya}. Vardiya`);
+  panelYukle(); // Ekranı güncelle
 }
 
 // ---------- SÜPER ADMİN PANELİ ----------
