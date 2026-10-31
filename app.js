@@ -288,6 +288,14 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     </div>`;
   }
 
+  // Hazır İcapçı Seçimi kutusunu Yeni İcap Görevi'nin hemen altına (gorevHtml içine) ekliyoruz
+  if (['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol)) {
+    gorevHtml += `<div class="kart" style="margin-top:16px;">${baslikHtml('🚨', 'Hazır İcapçı Seçimi')}
+      <p class="alt-not">İstirahat dönemi için 1 Er ve 1 Şoför seçin.</p>
+      <button type="button" class="btn btn-mavi" style="margin:0" onclick="hazirIcapciModalAc()">Personel Seç</button>
+    </div>`;
+  }
+
   if (['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol)) {
     let query = sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol, vardiya)').eq('durum', 'onay_bekliyor');
     if (rol === 'vardiya_cavusu') query = query.eq('vardiya', mevcutPersonel.vardiya);
@@ -317,11 +325,6 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       });
     } else { iHtml = '<div class="bos">Onay bekleyen izin talebi yok.</div>'; }
     html += `<div class="kart">${baslikHtml('📅', 'Onay Bekleyen İzinler', izinler && izinler.length ? `<span class="rozet r-mor">${izinler.length}</span>` : '')}${iHtml}</div>`;
-
-    html += `<div class="kart">${baslikHtml('🚨', 'Hazır İcapçı Seçimi')}
-      <p class="alt-not">İstirahat dönemi için 1 Er ve 1 Şoför seçin.</p>
-      <button type="button" class="btn btn-mavi" style="margin:0" onclick="hazirIcapciModalAc()">Personel Seç</button>
-    </div>`;
 
     const bugun = new Date().toISOString().split('T')[0];
     const otuzGunOnce = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
