@@ -260,6 +260,12 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 .a-petrol{--g1:linear-gradient(135deg,#14b8a6,#0f766e);--sh:rgba(15,118,110,.35)}
 .a-lacivert{--g1:linear-gradient(135deg,#334e68,#0f1823);--sh:rgba(15,24,35,.4)}
 
+/* ---------- AKTİF İCAP PANOSU (BİRLEŞİK) ---------- */
+.aktif-pano{display:flex;flex-direction:column;animation:panoAc .35s ease-out}
+.aktif-pano .kpi.hero{border-bottom-left-radius:0;border-bottom-right-radius:0;border-top-left-radius:18px;border-top-right-radius:18px}
+.aktif-pano .kart{border-top-left-radius:0;border-top-right-radius:0;border-top:3px solid #17a673}
+@keyframes panoAc{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+
 /* ---------- KURUMSAL İNCE AYARLAR ---------- */
 .kpi.genis{background:linear-gradient(135deg,#fff,#f4f7fb)}
 .kart{border-radius:18px}
@@ -347,25 +353,25 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
     <div class="dashboard">
       <div class="col">
         
-        <!-- NÖBETÇİ EKİP (En üste alındı) -->
+        <!-- AKTİF İCAP PANOSU: yalnızca aktif icap varken görünür (en üstte, iki pano birleşik) -->
+        <div id="aktifIcapPano" class="aktif-pano" style="display:none">
+          <div class="kpi hero buyuk">
+            <div class="kpi-etiket"><span class="canli"></span>Aktif İcap Görevli</div>
+            <div class="kpi-deger" id="aktifIcapSayisi">0</div>
+            <div class="kpi-alt"> kişi şu an görevde</div>
+          </div>
+          <div class="kart">
+            <div class="kart-baslik"><div class="kart-baslik-simge">🟢</div>Aktif İcap Görevindeki Personel</div>
+            <div id="aktifIcapListe"></div>
+          </div>
+        </div>
+
+        <!-- NÖBETÇİ EKİP -->
         <div class="kpi genis" style="--c:var(--blue); margin-bottom: 4px; padding: 12px 16px;">
           <div>
             <div class="kpi-etiket" style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">NÖBETÇİ EKİP</div>
           </div>
           <div class="kpi-deger" id="kpiVardiya" style="font-size: 20px;">–</div>
-        </div>
-
-        <!-- AKTİF İCAP GÖREVLİ -->
-        <div class="kpi hero buyuk">
-          <div class="kpi-etiket"><span class="canli"></span>Aktif İcap Görevli</div>
-          <div class="kpi-deger" id="aktifIcapSayisi">0</div>
-          <div class="kpi-alt"> kişi şu an görevde</div>
-        </div>
-
-        <!-- AKTİF PERSONEL LİSTESİ -->
-        <div class="kart">
-          <div class="kart-baslik"><div class="kart-baslik-simge">🟢</div>Aktif İcap Görevindeki Personel</div>
-          <div id="aktifIcapListe"></div>
         </div>
 
         <div id="icapGorevKart"></div>
