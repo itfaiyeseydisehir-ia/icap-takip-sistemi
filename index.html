@@ -236,6 +236,36 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 .icap-kart.aktif-gorev::before{background:linear-gradient(90deg,#17a673,#2ee59d)}
 .zaman{font-size:46px;font-weight:900;text-align:center;letter-spacing:2px;font-variant-numeric:tabular-nums;margin:6px 0 18px;color:#fff}
 
+/* ---------- HIZLI İŞLEMLER (KURUMSAL BUTON IZGARASI) ---------- */
+.hizli-islem-kart{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:var(--shadow)}
+.hizli-islem-baslik{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:800;color:var(--text-2);text-transform:uppercase;letter-spacing:.8px;margin:2px 4px 14px}
+.hizli-islem-baslik span{font-weight:600;letter-spacing:.3px;text-transform:none;color:var(--text-3)}
+.aksiyon-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(min-width:560px){.aksiyon-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:1100px){.aksiyon-grid{grid-template-columns:repeat(4,1fr)}}
+.aksiyon-btn{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;min-height:92px;padding:14px 8px;border-radius:16px;color:#fff;font-size:12.5px;font-weight:700;letter-spacing:.2px;text-align:center;line-height:1.25;background:var(--g1);box-shadow:0 8px 18px var(--sh);transition:transform .12s,filter .15s,box-shadow .15s;overflow:hidden}
+.aksiyon-btn::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0) 55%);pointer-events:none}
+.aksiyon-btn:hover{filter:brightness(1.07)}
+.aksiyon-btn:active{transform:scale(.95);box-shadow:0 3px 8px var(--sh)}
+.aksiyon-btn svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;position:relative;z-index:1}
+.aksiyon-btn span{position:relative;z-index:1}
+.aksiyon-sayac{position:absolute;top:8px;right:8px;z-index:2;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#fff;color:var(--red);font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.a-yesil{--g1:linear-gradient(135deg,#22b573,#0f7d52);--sh:rgba(18,128,92,.35)}
+.a-mavi{--g1:linear-gradient(135deg,#3b82f6,#1d4ed8);--sh:rgba(37,99,235,.35)}
+.a-mor{--g1:linear-gradient(135deg,#8b5cf6,#6d28d9);--sh:rgba(109,40,217,.35)}
+.a-turuncu{--g1:linear-gradient(135deg,#f59e0b,#d97706);--sh:rgba(217,119,6,.35)}
+.a-kehribar{--g1:linear-gradient(135deg,#fb923c,#ea580c);--sh:rgba(234,88,12,.35)}
+.a-pembe{--g1:linear-gradient(135deg,#ec4899,#be185d);--sh:rgba(190,24,93,.35)}
+.a-kirmizi{--g1:linear-gradient(135deg,#ef4444,#b91c1c);--sh:rgba(185,28,28,.35)}
+.a-petrol{--g1:linear-gradient(135deg,#14b8a6,#0f766e);--sh:rgba(15,118,110,.35)}
+.a-lacivert{--g1:linear-gradient(135deg,#334e68,#0f1823);--sh:rgba(15,24,35,.4)}
+
+/* ---------- KURUMSAL İNCE AYARLAR ---------- */
+.kpi.genis{background:linear-gradient(135deg,#fff,#f4f7fb)}
+.kart{border-radius:18px}
+.kart-baslik-simge{background:linear-gradient(135deg,#f1f4f8,#e6ebf2)}
+.tbl-wrap{border-radius:12px}
+
 /* ---------- TOAST ---------- */
 #toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,20px);background:#333;color:#fff;padding:12px 20px;border-radius:12px;opacity:0;transition:.3s;z-index:9999;font-weight:600;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.3);max-width:90%;pointer-events:none}
 #toast.gorunur{opacity:1;transform:translate(-50%,0)}
@@ -340,6 +370,9 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 
         <div id="icapGorevKart"></div>
 
+        <!-- HIZLI İŞLEMLER (rol bazlı butonlar) -->
+        <div id="hizliIslemler"></div>
+
         <div class="kpi-grid-2">
           <div class="kpi" style="--c:var(--green)"><div class="kpi-etiket">Kalan Bakiyem</div><div class="kpi-deger" id="kpiBakiye">–</div><div class="kpi-alt">icap / izin</div></div>
           <div class="kpi" style="--c:var(--amber)"><div class="kpi-etiket">Bekleyen Onay</div><div class="kpi-deger" id="kpiBekleyen">–</div><div class="kpi-alt">işlem</div></div>
@@ -352,11 +385,6 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
         
         <!-- HAZIR İCAPÇI EKİBİ KARTI BURADAN KALDIRILDI -->
 
-        <div class="kart">
-          <div class="kart-baslik"><div class="kart-baslik-simge">☁️</div>Veri Güvenliği</div>
-          <p class="alt-not">Sistem verilerini Supabase bulutuna manuel olarak yedekleyin.</p>
-          <button type="button" class="btn btn-outline" style="margin:0" onclick="veriYedekle()">📥 Sistemi Buluta Yedekle</button>
-        </div>
         <div id="logPenceresi" class="kart" style="display:none"></div>
       </div>
     </div>
