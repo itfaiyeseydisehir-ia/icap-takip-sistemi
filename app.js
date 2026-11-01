@@ -240,14 +240,6 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   let bekleyenSayi = 0;
   let gorevHtml = '';
 
-  if (rol === 'super_admin') {
-    html += `<div class="kart admin-kart">
-      ${baslikHtml('🛠️', 'Süper Admin Yönetim Paneli')}
-      <p>Personel ekleme, sistem ayarları ve yedek yönetimi.</p>
-      <button type="button" class="btn btn-primary" style="margin:0" onclick="adminPaneliAc()">Yönetim Panelini Aç</button>
-    </div>`;
-  }
-
   const kendiAktif = aktifler?.find(a => a.personel_id === mevcutPersonel.id);
 
   if (kendiAktif) {
@@ -288,11 +280,6 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       </div>
       <textarea id="gorevAciklama" rows="2" placeholder="Açıklama (isteğe bağlı) — örn: Mahalle, adres..." ${!baslatabilir ? 'disabled' : ''}></textarea>
       <button type="button" class="icap-baslat" onclick="icapBaslat()" ${!baslatabilir ? 'disabled' : ''}>▶ İCAP GÖREVİNİ BAŞLAT</button>
-    </div>`;
-
-    html += `<div class="kart">
-      ${baslikHtml('📅', 'İcap İzni Kullan')}
-      <button type="button" class="btn btn-mor" style="margin:0" onclick="izinModalAc()">Yeni İzin Talebi Oluştur</button>
     </div>`;
   }
 
@@ -347,7 +334,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
           <div class="onay-btnler"><button type="button" class="btn btn-success" onclick="onayla('${b.id}', 'icap')">✓ Onayla</button><button type="button" class="btn btn-danger" onclick="reddet('${b.id}', 'icap')">✕ Reddet</button></div></div>`;
       });
     } else { bHtml = '<div class="bos">Onay bekleyen icap yok.</div>'; }
-    html += `<div class="kart">${baslikHtml('⏳', 'Onay Bekleyen İcaplar', bekleyenler && bekleyenler.length ? `<span class="rozet r-turuncu">${bekleyenler.length}</span>` : '')}${bHtml}</div>`;
+    html += `<div class="kart" id="onayIcapKart">${baslikHtml('⏳', 'Onay Bekleyen İcaplar', bekleyenler && bekleyenler.length ? `<span class="rozet r-turuncu">${bekleyenler.length}</span>` : '')}${bHtml}</div>`;
 
     let izinQuery = sb.from('icap_izin_talepleri').select('*, personel:personel_id(ad_soyad, vardiya, rol)').eq('durum', 'onay_bekliyor');
     if (rol === 'vardiya_cavusu') izinQuery = izinQuery.eq('personel.vardiya', mevcutPersonel.vardiya).eq('eksi_bakiye_mi', false);
@@ -362,24 +349,89 @@ async function rolIcerikCiz(aktifler, hazirlar) {
           <div class="onay-btnler"><button type="button" class="btn btn-success" onclick="onayla('${b.id}', 'izin')">✓ Onayla</button><button type="button" class="btn btn-danger" onclick="reddet('${b.id}', 'izin')">✕ Reddet</button></div></div>`;
       });
     } else { iHtml = '<div class="bos">Onay bekleyen izin talebi yok.</div>'; }
-    html += `<div class="kart">${baslikHtml('📅', 'Onay Bekleyen İzinler', izinler && izinler.length ? `<span class="rozet r-mor">${izinler.length}</span>` : '')}${iHtml}</div>`;
+    html += `<div class="kart" id="onayIzinKart">${baslikHtml('📅', 'Onay Bekleyen İzinler', izinler && izinler.length ? `<span class="rozet r-mor">${izinler.length}</span>` : '')}${iHtml}</div>`;
 
-    const bugun = new Date().toISOString().split('T')[0];
-    const otuzGunOnce = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    html += `<div class="kart">${baslikHtml('📊', 'Raporlama')}
-      <div class="form-satir">
-        <div class="form-grup"><label>Başlangıç</label><input type="date" id="raporBaslangic" value="${otuzGunOnce}"></div>
-        <div class="form-grup"><label>Bitiş</label><input type="date" id="raporBitis" value="${bugun}"></div>
-      </div>
-      <button type="button" class="btn btn-outline" style="margin:0" onclick="raporCsvIndir()">⬇ Detaylı CSV İndir</button>
-    </div>`;
   }
 
   document.getElementById('kpiBekleyen').innerText = ['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol) ? bekleyenSayi : '–';
   el.innerHTML = html;
+  hizliIslemleriCiz(rol, bekleyenSayi);
   const gk = document.getElementById('icapGorevKart');
   if (gk) gk.innerHTML = gorevHtml;
   sayacGuncelle();
+}
+
+// ---------- HIZLI İŞLEMLER (BUTON IZGARASI) ----------
+const IKON = {
+  izin: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg>',
+  ekip: '<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>',
+  onay: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',
+  izinOnay: '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+  rapor: '<svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 17V9M13 17V5M18 17v-6"/></svg>',
+  bakiye: '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M16 15h2"/></svg>',
+  log: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
+  yedek: '<svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
+  admin: '<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"/></svg>',
+  ayar: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
+};
+
+function hizliGit(id) {
+  const e = document.getElementById(id);
+  if (e) { e.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (navigator.vibrate) navigator.vibrate(10); }
+  else toast("Bu bölüm şu an görüntülenemiyor.");
+}
+
+function hizliIslemleriCiz(rol, bekleyenSayi) {
+  const kutu = document.getElementById('hizliIslemler');
+  if (!kutu) return;
+  const yonetici = ['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol);
+  const tuslar = [];
+  const ekle = (renk, ikon, metin, onclick, sayac = 0) => tuslar.push({ renk, ikon, metin, onclick, sayac });
+
+  ekle('a-mor', IKON.izin, 'İzin Talebi', 'izinModalAc()');
+  ekle('a-yesil', IKON.bakiye, 'Bakiyem', "hizliGit('kisiselBakiyeKart')");
+  if (yonetici) {
+    ekle('a-mavi', IKON.ekip, 'İcap Personeli Seç', 'hazirIcapciModalAc()');
+    const icapSay = document.querySelectorAll('#onayIcapKart .onay-item').length;
+    const izinSay = document.querySelectorAll('#onayIzinKart .onay-item').length;
+    ekle('a-turuncu', IKON.onay, 'İcap Onayları', "hizliGit('onayIcapKart')", icapSay);
+    ekle('a-kehribar', IKON.izinOnay, 'İzin Onayları', "hizliGit('onayIzinKart')", izinSay);
+    ekle('a-pembe', IKON.rapor, 'Raporlar', 'raporModalAc()');
+  }
+  ekle('a-lacivert', IKON.log, 'Sistem Hareketleri', "hizliGit('logPenceresi')");
+  if (yonetici) ekle('a-petrol', IKON.yedek, 'Buluta Yedekle', 'veriYedekle()');
+  if (rol === 'super_admin') {
+    ekle('a-kirmizi', IKON.admin, 'Yönetim Paneli', 'adminPaneliAc()');
+    ekle('a-lacivert', IKON.ayar, 'Sistem Ayarları', "adminPaneliAc(); adminTab('ayarlar')");
+  }
+
+  // Bekleyen onay sayacı rozetleri (yalnızca onay butonlarında)
+  const butonlar = tuslar.map(t => {
+    const sayacHtml = (t.sayac && t.sayac > 0) ? `<div class="aksiyon-sayac">${t.sayac}</div>` : '';
+    return `<button type="button" class="aksiyon-btn ${t.renk}" onclick="${t.onclick}">${sayacHtml}${t.ikon}<span>${t.metin}</span></button>`;
+  }).join('');
+
+  kutu.innerHTML = `<div class="hizli-islem-kart">
+    <div class="hizli-islem-baslik">Hızlı İşlemler <span>${esc(rolAd(rol))}</span></div>
+    <div class="aksiyon-grid">${butonlar}</div>
+  </div>`;
+}
+
+function raporModalAc() {
+  if (document.getElementById('raporModal')) return;
+  const bugun = new Date().toISOString().split('T')[0];
+  const otuzGunOnce = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const html = `<div class="modal aktif" id="raporModal"><div class="modal-content">
+    <h3>📊 Raporlama</h3>
+    <p class="alt-not">Onaylanmış icap kayıtlarını tarih aralığına göre CSV olarak indirin.</p>
+    <div class="form-satir">
+      <div class="form-grup"><label>Başlangıç</label><input type="date" id="raporBaslangic" value="${otuzGunOnce}"></div>
+      <div class="form-grup"><label>Bitiş</label><input type="date" id="raporBitis" value="${bugun}"></div>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="raporCsvIndir()">⬇ Detaylı CSV İndir</button>
+    <button type="button" class="btn btn-link" onclick="document.getElementById('raporModal').remove()">Kapat</button>
+  </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
 }
 
 // ---------- HIZLI İCAP YARDIMCILARI ----------
@@ -802,6 +854,7 @@ async function raporCsvIndir() {
   });
   const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `icap_raporu_${bas}_${bit}.csv`; link.click();
+  document.getElementById('raporModal')?.remove();
 }
 
 // ---------- YEDEKLEME / GERİ YÜKLEME ----------
