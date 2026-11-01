@@ -158,7 +158,7 @@ async function panelYukle() {
   } else { aHtml = '<div class="bos">Şu an icapta personel yok.</div>'; }
   document.getElementById('aktifIcapListe').innerHTML = aHtml;
 
-  // Hazır icapçılar (Sadece rolIcerikCiz'e gönderilmek üzere çekiliyor)
+  // Hazır icapçılar
   const { data: hazirlar } = await sb.from('hazir_icapcilar').select('*, er:er_personel_id(ad_soyad), sofor:sofor_personel_id(ad_soyad)').eq('durum', 'aktif').gte('bitis_zamani', new Date().toISOString());
 
   // Bakiye
@@ -283,15 +283,13 @@ async function rolIcerikCiz(aktifler, hazirlar) {
 
   if (['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol)) {
     let secilenlerHtml = '';
-    // Sadece o vardiyanın veya yetkiliyse tüm icapçıları filtrele
     const ilgiliHazirlar = hazirlar?.filter(h => {
       if (rol === 'vardiya_cavusu') return h.vardiya === mevcutPersonel.vardiya;
-      return true; // Amiri ve Admin için tüm seçimleri göster
+      return true; 
     });
 
     if (ilgiliHazirlar && ilgiliHazirlar.length > 0) {
       ilgiliHazirlar.forEach(h => {
-        // ✅ DÜZELTME: Silinmiş personel (null) kontrolü eklendi
         const erAd = h.er?.ad_soyad || '⚠️ Silinmiş Personel';
         const soforAd = h.sofor?.ad_soyad || '⚠️ Silinmiş Personel';
         
@@ -305,9 +303,10 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       secilenlerHtml = `<p class="alt-not" style="margin-bottom:10px;">İstirahat dönemi için 1 Er ve 1 Şoför seçin.</p>`;
     }
 
-    gorevHtml += `<div class="kart" style="margin-top:16px;">${baslikHtml('🚨', 'İcapçı Seçimi')}
+    // ✅ BAŞLIK DEĞİŞTİRİLDİ: "İCAP GÖREVLİ PERSONEL"
+    gorevHtml += `<div class="kart" style="margin-top:16px;">${baslikHtml('🚨', 'İCAP GÖREVLİ PERSONEL')}
       ${secilenlerHtml}
-      <button type="button" class="btn btn-mavi" style="margin:0" onclick="hazirIcapciModalAc()">${ilgiliHazirlar?.length > 0 ? 'Seçimi Değiştir' : 'Personel Seç'}</button>
+      <button type="button" class="btn btn-mavi" style="margin:0" onclick="hazirIcapciModalAc()">${ilgiliHazirlar?.length > 0 ? 'Görevli Personeli Değiştir' : 'Görevli Personel Seç'}</button>
     </div>`;
   }
 
@@ -452,28 +451,35 @@ async function izinTalepEt() {
 }
 
 async function hazirIcapciModalAc() {
-  // Aynı anda iki modal açılmasını engelle
   if (document.getElementById('hazirModal')) return;
 
-  // Vardiya çavuşunun vardiyası tanımlı değilse işlemi engelle
-  if (mevcutPersonel.rol === 'vardiya_cavusu' && !mevcutPersonel.vardiya) {
-    return toast("Vardiyanız sistemde tanımlı değil. Yöneticinize başvurun.");
+  if (mevcutPersonel.rol === 'vardiya_cavusu') {
+    if (!mevcutPersonel.vardiya) return toast("Vardiyanız sistemde tanımlı değil. Yöneticinize başvurun.");
+    // ✅ NÖBETÇİ VARDİYA KONTROLÜ
+    if (parseInt(mevcutPersonel.vardiya) === sistemAyar.aktif_vardiya) {
+      return toast("Vardiyanız şu anda 24 saat esaslı nöbette olduğu için icapçı seçimi yapamazsınız. Lütfen nöbet değişimini bekleyin.");
+    }
   }
 
   let vardiyaSecimiHtml = '';
   if (mevcutPersonel.rol !== 'vardiya_cavusu') {
-    // ✅ DÜZELTME: Varsayılan seçenek, sistemdeki aktif vardiyaya göre ayarlandı
+    // ✅ Nöbetçi olan vardiyayı dropdown'da disable yap ve varsayılan olarak nöbetçi olmayanı seç
+    const v1 = sistemAyar.aktif_vardiya === 1;
+    const v2 = sistemAyar.aktif_vardiya === 2;
+    const v3 = sistemAyar.aktif_vardiya === 3;
+    const defaultSec = v1 ? 2 : (v2 ? 3 : 1);
+
     vardiyaSecimiHtml = `<div class="form-grup"><label>Hangi Vardiya İçin?</label><select id="secVardiya" onchange="hazirPersonelleriGetir()">
-      <option value="1" ${sistemAyar.aktif_vardiya === 1 ? 'selected' : ''}>1. Vardiya</option>
-      <option value="2" ${sistemAyar.aktif_vardiya === 2 ? 'selected' : ''}>2. Vardiya</option>
-      <option value="3" ${sistemAyar.aktif_vardiya === 3 ? 'selected' : ''}>3. Vardiya</option>
+      <option value="1" ${v1 ? 'disabled' : (defaultSec === 1 ? 'selected' : '')}>1. Vardiya ${v1 ? '(Nöbette)' : ''}</option>
+      <option value="2" ${v2 ? 'disabled' : (defaultSec === 2 ? 'selected' : '')}>2. Vardiya ${v2 ? '(Nöbette)' : ''}</option>
+      <option value="3" ${v3 ? 'disabled' : (defaultSec === 3 ? 'selected' : '')}>3. Vardiya ${v3 ? '(Nöbette)' : ''}</option>
     </select></div>`;
   } else {
     vardiyaSecimiHtml = `<input type="hidden" id="secVardiya" value="${mevcutPersonel.vardiya}">`;
   }
   const html = `<div class="modal aktif" id="hazirModal"><div class="modal-content">
-    <h3>🚨 İcapçı Seçimi</h3>
-    <p class="alt-not">48 saatlik istirahat dönemi için 1 Er ve 1 Şoför seçiniz.</p>
+    <h3>🚨 İcap Görevli Personel Seçimi</h3>
+    <p class="alt-not">İstirahat dönemi için 1 Er ve 1 Şoför seçiniz.</p>
     ${vardiyaSecimiHtml}
     <div id="hazirPersonelAlan"></div>
     <button type="button" class="btn btn-primary" onclick="hazirKaydet()">Seçimi Onayla</button>
@@ -490,17 +496,27 @@ async function hazirPersonelleriGetir() {
     return;
   }
 
+  // ✅ NÖBETÇİ VARDİYA KONTROLÜ (Ekstra Güvenlik)
+  if (vardiya === sistemAyar.aktif_vardiya) {
+    document.getElementById('hazirPersonelAlan').innerHTML = `<div class="uyari" style="background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px; border-radius:8px;">⚠️ <span><b>${vardiya}. Vardiya</b> şu anda 24 saat esaslı nöbette olduğu için icapçı seçilemez.</span></div>`;
+    return;
+  }
+
   const { data: personeller } = await sb.from('personel').select('*').eq('vardiya', vardiya);
   const liste = personeller || [];
   
-  // 1. Grup Amiri'ni bu seçimden tamamen çıkar
+  // Grup Amiri'ni bu seçimden tamamen çıkar
   const filtrelenmisListe = liste.filter(p => p.rol !== 'grup_amiri');
   
-  // 2. Er Listesi
-  const erler = filtrelenmisListe.filter(p => p.nitelik === 'er');
-  
-  // 3. Şoför Listesi
-  const soforler = filtrelenmisListe.filter(p => p.nitelik === 'sofor');
+  // Er ve Şoför Listeleri
+  let erler = filtrelenmisListe.filter(p => p.nitelik === 'er');
+  let soforler = filtrelenmisListe.filter(p => p.nitelik === 'sofor');
+
+  // ✅ VARDİYA ÇAVUŞU KENDİNİ SEÇEBİLSİN
+  if (mevcutPersonel.rol === 'vardiya_cavusu' && parseInt(mevcutPersonel.vardiya) === vardiya) {
+    if (!erler.some(p => p.id === mevcutPersonel.id)) erler.push(mevcutPersonel);
+    if (!soforler.some(p => p.id === mevcutPersonel.id)) soforler.push(mevcutPersonel);
+  }
   
   document.getElementById('hazirPersonelAlan').innerHTML = `
     <div class="form-grup"><label>İtfaiye Eri / Çavuş</label>
@@ -517,17 +533,18 @@ async function hazirPersonelleriGetir() {
 
 async function hazirKaydet() {
   const vardiya = parseInt(document.getElementById('secVardiya').value);
-  const erId = document.getElementById('secEr').value;
-  const soforId = document.getElementById('secSofor').value;
+  const erId = document.getElementById('secEr')?.value;
+  const soforId = document.getElementById('secSofor')?.value;
 
   if (isNaN(vardiya)) return toast("Geçersiz vardiya. Lütfen yöneticinize başvurun.");
+  if (vardiya === sistemAyar.aktif_vardiya) return toast("Nöbetçi vardiya (24 saat esaslı) icapçı olarak seçilemez!");
   if (!erId || !soforId) return toast("Lütfen personel seçin. (Er veya Şoför bulunamadıysa yöneticinize başvurun)");
-  if (erId === soforId) return toast("Er ve Şoför aynı kişi olamaz. Lütfen farklı kişiler seçin."); // ✅ DÜZELTME: Aynı kişi kontrolü
+  if (erId === soforId) return toast("Er ve Şoför aynı kişi olamaz. Lütfen farklı kişiler seçin."); 
   
   const simdi = new Date(); 
   const bitis = new Date(simdi.getTime() + (48 * 60 * 60 * 1000));
 
-  // ✅ DÜZELTME: Önce Yeni Seçimi Kaydet (Veri kaybını önlemek için)
+  // Önce Yeni Seçimi Kaydet
   const { data: yeniKayit, error: insertError } = await sb.from('hazir_icapcilar').insert([{ 
     vardiya: vardiya, 
     er_personel_id: erId, 
@@ -621,7 +638,6 @@ async function adminTab(tab) {
         <button type="button" class="btn btn-success" style="margin:0;width:auto" onclick="personelEkle()">➕ Personeli Kaydet</button>
       </div>
 
-      <!-- FİLTRELEME ALANI -->
       <div class="panel-kutu" style="display:flex; justify-content:space-between; align-items:center; background:#fff; padding:12px 16px;">
         <h4 style="margin:0; font-size:14px; color:#30363d;">Personel Listesi</h4>
         <select id="adminVardiyaFiltre" onchange="filtrelePersonelListesi(this.value)" style="width:auto; padding:8px 12px; border-radius:8px; border:1.5px solid #d5dce5; font-size:13px; font-weight:700; color:#18202b; outline:none;">
