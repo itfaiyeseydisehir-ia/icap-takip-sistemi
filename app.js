@@ -281,7 +281,6 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     </div>`;
   }
 
-  // ✅ DÜZELTME (yorum): İcapçı Seçimi kutusunu Yeni İcap Görevi'nin hemen altına ekliyoruz
   if (['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol)) {
     let secilenlerHtml = '';
     // Sadece o vardiyanın veya yetkiliyse tüm icapçıları filtrele
@@ -292,10 +291,14 @@ async function rolIcerikCiz(aktifler, hazirlar) {
 
     if (ilgiliHazirlar && ilgiliHazirlar.length > 0) {
       ilgiliHazirlar.forEach(h => {
+        // ✅ DÜZELTME: Silinmiş personel (null) kontrolü eklendi
+        const erAd = h.er?.ad_soyad || '⚠️ Silinmiş Personel';
+        const soforAd = h.sofor?.ad_soyad || '⚠️ Silinmiş Personel';
+        
         secilenlerHtml += `<div style="background:#eef6f1; border:1px solid #c7ead5; border-radius:8px; padding:10px; margin-bottom:8px;">
           <div style="font-size:12px; font-weight:800; color:var(--green); margin-bottom:4px;">${h.vardiya}. Vardiya İstirahat Ekibi</div>
-          <div style="font-size:13px; color:#18202b;">👨‍🚒 ${esc(h.er.ad_soyad)}</div>
-          <div style="font-size:13px; color:#18202b; margin-top:2px;">🚛 ${esc(h.sofor.ad_soyad)}</div>
+          <div style="font-size:13px; color:#18202b;">👨‍🚒 ${esc(erAd)}</div>
+          <div style="font-size:13px; color:#18202b; margin-top:2px;">🚛 ${esc(soforAd)}</div>
         </div>`;
       });
     } else {
@@ -448,8 +451,10 @@ async function izinTalepEt() {
   panelYukle();
 }
 
-// ✅ DÜZELTME: Vardiya null kontrolü + modal başlığından "Hazır" kaldırıldı
 async function hazirIcapciModalAc() {
+  // Aynı anda iki modal açılmasını engelle
+  if (document.getElementById('hazirModal')) return;
+
   // Vardiya çavuşunun vardiyası tanımlı değilse işlemi engelle
   if (mevcutPersonel.rol === 'vardiya_cavusu' && !mevcutPersonel.vardiya) {
     return toast("Vardiyanız sistemde tanımlı değil. Yöneticinize başvurun.");
@@ -457,7 +462,12 @@ async function hazirIcapciModalAc() {
 
   let vardiyaSecimiHtml = '';
   if (mevcutPersonel.rol !== 'vardiya_cavusu') {
-    vardiyaSecimiHtml = `<div class="form-grup"><label>Hangi Vardiya İçin?</label><select id="secVardiya" onchange="hazirPersonelleriGetir()"><option value="1">1. Vardiya</option><option value="2">2. Vardiya</option><option value="3">3. Vardiya</option></select></div>`;
+    // ✅ DÜZELTME: Varsayılan seçenek, sistemdeki aktif vardiyaya göre ayarlandı
+    vardiyaSecimiHtml = `<div class="form-grup"><label>Hangi Vardiya İçin?</label><select id="secVardiya" onchange="hazirPersonelleriGetir()">
+      <option value="1" ${sistemAyar.aktif_vardiya === 1 ? 'selected' : ''}>1. Vardiya</option>
+      <option value="2" ${sistemAyar.aktif_vardiya === 2 ? 'selected' : ''}>2. Vardiya</option>
+      <option value="3" ${sistemAyar.aktif_vardiya === 3 ? 'selected' : ''}>3. Vardiya</option>
+    </select></div>`;
   } else {
     vardiyaSecimiHtml = `<input type="hidden" id="secVardiya" value="${mevcutPersonel.vardiya}">`;
   }
@@ -473,7 +483,6 @@ async function hazirIcapciModalAc() {
   hazirPersonelleriGetir();
 }
 
-// ✅ DÜZELTME: NaN vardiya kontrolü eklendi
 async function hazirPersonelleriGetir() {
   const vardiya = parseInt(document.getElementById('secVardiya').value);
   if (isNaN(vardiya)) {
@@ -487,10 +496,10 @@ async function hazirPersonelleriGetir() {
   // 1. Grup Amiri'ni bu seçimden tamamen çıkar
   const filtrelenmisListe = liste.filter(p => p.rol !== 'grup_amiri');
   
-  // 2. Er Listesi: SADECE niteliği 'er' olanlar girer (Rolü çavuş olsa bile)
+  // 2. Er Listesi
   const erler = filtrelenmisListe.filter(p => p.nitelik === 'er');
   
-  // 3. Şoför Listesi: SADECE niteliği 'sofor' olanlar girer (Rolü çavuş olsa bile)
+  // 3. Şoför Listesi
   const soforler = filtrelenmisListe.filter(p => p.nitelik === 'sofor');
   
   document.getElementById('hazirPersonelAlan').innerHTML = `
@@ -506,38 +515,41 @@ async function hazirPersonelleriGetir() {
     </div>`;
 }
 
-// ✅ DÜZELTME: insert'e durum: 'aktif' eklendi + NaN vardiya kontrolü
 async function hazirKaydet() {
   const vardiya = parseInt(document.getElementById('secVardiya').value);
   const erId = document.getElementById('secEr').value;
   const soforId = document.getElementById('secSofor').value;
 
   if (isNaN(vardiya)) return toast("Geçersiz vardiya. Lütfen yöneticinize başvurun.");
-  if (!erId || !soforId) return toast("Lütfen personel seçin.");
+  if (!erId || !soforId) return toast("Lütfen personel seçin. (Er veya Şoför bulunamadıysa yöneticinize başvurun)");
+  if (erId === soforId) return toast("Er ve Şoför aynı kişi olamaz. Lütfen farklı kişiler seçin."); // ✅ DÜZELTME: Aynı kişi kontrolü
   
   const simdi = new Date(); 
   const bitis = new Date(simdi.getTime() + (48 * 60 * 60 * 1000));
 
-  // 1. AYNI VARDİYAYA AİT ESKİ AKTİF İCAPÇILARI İPTAL ET
-  await sb.from('hazir_icapcilar')
-    .update({ durum: 'iptal' })
-    .eq('vardiya', vardiya)
-    .eq('durum', 'aktif');
-
-  // 2. YENİ SEÇİMİ KAYDET
-  const { error } = await sb.from('hazir_icapcilar').insert([{ 
+  // ✅ DÜZELTME: Önce Yeni Seçimi Kaydet (Veri kaybını önlemek için)
+  const { data: yeniKayit, error: insertError } = await sb.from('hazir_icapcilar').insert([{ 
     vardiya: vardiya, 
     er_personel_id: erId, 
     sofor_personel_id: soforId, 
     baslangic_zamani: simdi.toISOString(), 
     bitis_zamani: bitis.toISOString(), 
     secen_cavus_id: mevcutPersonel.id,
-    durum: 'aktif'   // ✅ DÜZELTME: durum alanı eklendi
-  }]);
+    durum: 'aktif'
+  }]).select();
 
-  if (error) {
-    toast("Kayıt hatası: " + error.message);
-    return;
+  if (insertError) {
+    toast("Kayıt hatası: " + insertError.message);
+    return; // Hata varsa eski kayıtları bozma
+  }
+
+  // Yeni kayıt başarılıysa, eski aktif kayıtları iptal et (yeni eklenen hariç)
+  if (yeniKayit && yeniKayit.length > 0) {
+    await sb.from('hazir_icapcilar')
+      .update({ durum: 'iptal' })
+      .eq('vardiya', vardiya)
+      .eq('durum', 'aktif')
+      .neq('id', yeniKayit[0].id);
   }
 
   document.getElementById('hazirModal').remove();
@@ -570,7 +582,6 @@ async function adminTab(tab) {
   el.innerHTML = '<div class="bos">Yükleniyor...</div>';
 
   if (tab === 'personel') {
-    // Tüm personeli çekip hafızada tut
     const { data: personeller } = await sb.from('personel').select('*').order('rol').order('vardiya');
     window._adminPersonelListesi = personeller || []; 
 
@@ -629,7 +640,6 @@ async function adminTab(tab) {
         </table>
       </div>`;
 
-    // İlk açılışta tüm listeyi çiz
     filtrelePersonelListesi('tumu');
     
   } else if (tab === 'ayarlar') {
@@ -652,14 +662,12 @@ async function adminTab(tab) {
   }
 }
 
-// YENİ FONKSİYON: Personel Listesini Vardiyaya Göre Filtreler
 function filtrelePersonelListesi(secim) {
   const tbody = document.getElementById('adminPersonelTbody');
   if (!tbody || !window._adminPersonelListesi) return;
 
   let filtrelenmisListe = window._adminPersonelListesi;
 
-  // Eğer "Tümü" seçilmediyse filtrele
   if (secim !== 'tumu') {
     if (secim === 'gunduz') {
       filtrelenmisListe = filtrelenmisListe.filter(p => p.vardiya === null || p.vardiya === undefined);
