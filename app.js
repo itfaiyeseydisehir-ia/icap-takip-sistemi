@@ -549,22 +549,9 @@ async function adminTab(tab) {
   el.innerHTML = '<div class="bos">Yükleniyor...</div>';
 
   if (tab === 'personel') {
+    // Tüm personeli çekip hafızada tut
     const { data: personeller } = await sb.from('personel').select('*').order('rol').order('vardiya');
-    let rows = '';
-    (personeller || []).forEach(p => {
-      const vardiyaAd = p.vardiya ? p.vardiya + ". Vardiya" : "Gündüz";
-      const durum = p.auth_user_id ? '<span class="rozet r-yesil">Aktif</span>' : '<span class="rozet r-turuncu">Kayıt Bekliyor</span>';
-      const nitelikAd = p.nitelik === 'sofor' ? '🚛 Şoför' : (p.nitelik === 'er' ? '👨‍🚒 Er' : '');
-      
-      rows += `<tr>
-        <td class="hucre-isim">${esc(p.ad_soyad)}</td>
-        <td>${esc(p.email)}</td>
-        <td>${rolRozet(p.rol)} <br><small style="color:#666">${nitelikAd}</small></td>
-        <td>${vardiyaAd}</td>
-        <td>${durum}</td>
-        <td class="sag"><button type="button" class="sil-btn" onclick="personelSil('${p.id}')" title="Sil">🗑️</button></td>
-      </tr>`;
-    });
+    window._adminPersonelListesi = personeller || []; 
 
     el.innerHTML = `
       <div class="panel-kutu">
@@ -601,7 +588,29 @@ async function adminTab(tab) {
         </div>
         <button type="button" class="btn btn-success" style="margin:0;width:auto" onclick="personelEkle()">➕ Personeli Kaydet</button>
       </div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Rol / Nitelik</th><th>Vardiya</th><th>Durum</th><th class="sag">Sil</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+
+      <!-- FİLTRELEME ALANI -->
+      <div class="panel-kutu" style="display:flex; justify-content:space-between; align-items:center; background:#fff; padding:12px 16px;">
+        <h4 style="margin:0; font-size:14px; color:#30363d;">Personel Listesi</h4>
+        <select id="adminVardiyaFiltre" onchange="filtrelePersonelListesi(this.value)" style="width:auto; padding:8px 12px; border-radius:8px; border:1.5px solid #d5dce5; font-size:13px; font-weight:700; color:#18202b; outline:none;">
+          <option value="tumu">Tüm Personel</option>
+          <option value="1">1. Vardiya</option>
+          <option value="2">2. Vardiya</option>
+          <option value="3">3. Vardiya</option>
+          <option value="gunduz">Gündüz Personeli</option>
+        </select>
+      </div>
+
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Rol / Nitelik</th><th>Vardiya</th><th>Durum</th><th class="sag">Sil</th></tr></thead>
+          <tbody id="adminPersonelTbody"></tbody>
+        </table>
+      </div>`;
+
+    // İlk açılışta tüm listeyi çiz
+    filtrelePersonelListesi('tumu');
+    
   } else if (tab === 'ayarlar') {
     el.innerHTML = `
       <div class="panel-kutu">
@@ -620,6 +629,45 @@ async function adminTab(tab) {
         <button type="button" class="btn btn-kirmizi" style="width:auto;margin:0" onclick="yedekGeriYukleTetikle()">⬆ Yedek Dosyası Seç ve Geri Yükle</button>
       </div>`;
   }
+}
+
+// YENİ FONKSİYON: Personel Listesini Vardiyaya Göre Filtreler
+function filtrelePersonelListesi(secim) {
+  const tbody = document.getElementById('adminPersonelTbody');
+  if (!tbody || !window._adminPersonelListesi) return;
+
+  let filtrelenmisListe = window._adminPersonelListesi;
+
+  // Eğer "Tümü" seçilmediyse filtrele
+  if (secim !== 'tumu') {
+    if (secim === 'gunduz') {
+      filtrelenmisListe = filtrelenmisListe.filter(p => p.vardiya === null || p.vardiya === undefined);
+    } else {
+      filtrelenmisListe = filtrelenmisListe.filter(p => p.vardiya === parseInt(secim));
+    }
+  }
+
+  let rows = '';
+  if (filtrelenmisListe.length === 0) {
+    rows = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#8d97a5;">Bu vardiyada kayıtlı personel bulunamadı.</td></tr>';
+  } else {
+    filtrelenmisListe.forEach(p => {
+      const vardiyaAd = p.vardiya ? p.vardiya + ". Vardiya" : "Gündüz";
+      const durum = p.auth_user_id ? '<span class="rozet r-yesil">Aktif</span>' : '<span class="rozet r-turuncu">Kayıt Bekliyor</span>';
+      const nitelikAd = p.nitelik === 'sofor' ? '🚛 Şoför' : (p.nitelik === 'er' ? '👨‍🚒 Er' : '');
+      
+      rows += `<tr>
+        <td class="hucre-isim">${esc(p.ad_soyad)}</td>
+        <td>${esc(p.email)}</td>
+        <td>${rolRozet(p.rol)} <br><small style="color:#666">${nitelikAd}</small></td>
+        <td>${vardiyaAd}</td>
+        <td>${durum}</td>
+        <td class="sag"><button type="button" class="sil-btn" onclick="personelSil('${p.id}')" title="Sil">🗑️</button></td>
+      </tr>`;
+    });
+  }
+  
+  tbody.innerHTML = rows;
 }
 
 async function personelEkle() {
