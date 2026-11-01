@@ -145,6 +145,9 @@ async function panelYukle() {
 
   const { data: aktifler } = await sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol)').eq('durum', 'aktif').order('baslama_zamani', { ascending: true });
   document.getElementById('aktifIcapSayisi').innerText = aktifler ? aktifler.length : 0;
+  // Aktif icap panosu yalnızca en az bir kişi icaptayken görünür
+  const aktifPano = document.getElementById('aktifIcapPano');
+  if (aktifPano) aktifPano.style.display = (aktifler && aktifler.length > 0) ? 'flex' : 'none';
   document.getElementById('kpiVardiya').innerText = (sistemAyar.aktif_vardiya || '–') + '. Vardiya';
 
   let aHtml = '';
@@ -156,7 +159,7 @@ async function panelYukle() {
         <td><div class="hucre-isim">${esc(a.personel.ad_soyad)}</div>${a.gorev_aciklamasi ? `<div class="hucre-alt">${esc(a.gorev_aciklamasi)}</div>` : ''}</td>
         <td>${rolRozet(a.personel.rol)}</td>
         <td>${saatYaz(a.baslama_zamani)}</td>
-        <td class="sag"><span class="rozet r-yesil">${sureYaz(dk)}</span></td>
+        <td class="sag"><span class="rozet r-yesil" style="font-variant-numeric:tabular-nums" data-baslama="${esc(a.baslama_zamani)}">${sureYaz(dk)}</span></td>
       </tr>`;
     });
     aHtml = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Personel</th><th>Görev</th><th>Başlama</th><th class="sag">Süre</th></tr></thead><tbody>${rows}</tbody></table></div>`;
