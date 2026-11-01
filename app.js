@@ -281,13 +281,13 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     </div>`;
   }
 
-  // Hazır İcapçı Seçimi kutusunu Yeni İcap Görevi'nin hemen altına ekliyoruz (Seçilenlerle birlikte)
+  // ✅ DÜZELTME (yorum): İcapçı Seçimi kutusunu Yeni İcap Görevi'nin hemen altına ekliyoruz
   if (['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol)) {
     let secilenlerHtml = '';
-    // Sadece o vardiyanın veya yetkiliyse tüm hazır icapçıları filtrele
+    // Sadece o vardiyanın veya yetkiliyse tüm icapçıları filtrele
     const ilgiliHazirlar = hazirlar?.filter(h => {
       if (rol === 'vardiya_cavusu') return h.vardiya === mevcutPersonel.vardiya;
-      return true; // Amiri ve Admin için tüm hazırları göster
+      return true; // Amiri ve Admin için tüm seçimleri göster
     });
 
     if (ilgiliHazirlar && ilgiliHazirlar.length > 0) {
@@ -448,7 +448,13 @@ async function izinTalepEt() {
   panelYukle();
 }
 
+// ✅ DÜZELTME: Vardiya null kontrolü + modal başlığından "Hazır" kaldırıldı
 async function hazirIcapciModalAc() {
+  // Vardiya çavuşunun vardiyası tanımlı değilse işlemi engelle
+  if (mevcutPersonel.rol === 'vardiya_cavusu' && !mevcutPersonel.vardiya) {
+    return toast("Vardiyanız sistemde tanımlı değil. Yöneticinize başvurun.");
+  }
+
   let vardiyaSecimiHtml = '';
   if (mevcutPersonel.rol !== 'vardiya_cavusu') {
     vardiyaSecimiHtml = `<div class="form-grup"><label>Hangi Vardiya İçin?</label><select id="secVardiya" onchange="hazirPersonelleriGetir()"><option value="1">1. Vardiya</option><option value="2">2. Vardiya</option><option value="3">3. Vardiya</option></select></div>`;
@@ -467,8 +473,14 @@ async function hazirIcapciModalAc() {
   hazirPersonelleriGetir();
 }
 
+// ✅ DÜZELTME: NaN vardiya kontrolü eklendi
 async function hazirPersonelleriGetir() {
   const vardiya = parseInt(document.getElementById('secVardiya').value);
+  if (isNaN(vardiya)) {
+    document.getElementById('hazirPersonelAlan').innerHTML = '<div class="bos">Geçersiz vardiya. Lütfen yöneticinize başvurun.</div>';
+    return;
+  }
+
   const { data: personeller } = await sb.from('personel').select('*').eq('vardiya', vardiya);
   const liste = personeller || [];
   
@@ -494,35 +506,44 @@ async function hazirPersonelleriGetir() {
     </div>`;
 }
 
+// ✅ DÜZELTME: insert'e durum: 'aktif' eklendi + NaN vardiya kontrolü
 async function hazirKaydet() {
   const vardiya = parseInt(document.getElementById('secVardiya').value);
   const erId = document.getElementById('secEr').value;
   const soforId = document.getElementById('secSofor').value;
+
+  if (isNaN(vardiya)) return toast("Geçersiz vardiya. Lütfen yöneticinize başvurun.");
   if (!erId || !soforId) return toast("Lütfen personel seçin.");
   
   const simdi = new Date(); 
   const bitis = new Date(simdi.getTime() + (48 * 60 * 60 * 1000));
 
-  // 1. AYNI VARDİYAYA AİT ESKİ AKTİF HAZIR İCAPÇILARI İPTAL ET
+  // 1. AYNI VARDİYAYA AİT ESKİ AKTİF İCAPÇILARI İPTAL ET
   await sb.from('hazir_icapcilar')
     .update({ durum: 'iptal' })
     .eq('vardiya', vardiya)
     .eq('durum', 'aktif');
 
   // 2. YENİ SEÇİMİ KAYDET
-  await sb.from('hazir_icapcilar').insert([{ 
+  const { error } = await sb.from('hazir_icapcilar').insert([{ 
     vardiya: vardiya, 
     er_personel_id: erId, 
     sofor_personel_id: soforId, 
     baslangic_zamani: simdi.toISOString(), 
     bitis_zamani: bitis.toISOString(), 
-    secen_cavus_id: mevcutPersonel.id 
+    secen_cavus_id: mevcutPersonel.id,
+    durum: 'aktif'   // ✅ DÜZELTME: durum alanı eklendi
   }]);
 
+  if (error) {
+    toast("Kayıt hatası: " + error.message);
+    return;
+  }
+
   document.getElementById('hazirModal').remove();
-  toast("Hazır icapçılar belirlendi.", "basari");
-  await logEkle("Hazır İcapçı Seçti", `${vardiya}. Vardiya`);
-  panelYukle(); // Ekranı anında güncelle
+  toast("İcapçılar belirlendi.", "basari");
+  await logEkle("İcapçı Seçti", `${vardiya}. Vardiya`);
+  panelYukle();
 }
 
 // ---------- SÜPER ADMİN PANELİ ----------
@@ -788,7 +809,7 @@ async function yedekGeriYukleIslem(event) {
         await sb.from('icap_izin_talepleri').upsert(icerik.izin_talepleri, { onConflict: 'id' });
       }
       if (icerik.hazir_icapcilar) {
-        toast("Hazır icapçılar yükleniyor...", "basari");
+        toast("İcapçılar yükleniyor...", "basari");
         await sb.from('hazir_icapcilar').upsert(icerik.hazir_icapcilar, { onConflict: 'id' });
       }
       if (icerik.log_kayitlari) {
