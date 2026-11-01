@@ -2,6 +2,12 @@
 // SEYDİŞEHİR İTFAİYESİ - İCAP TAKİP SİSTEMİ (Kurumsal Arayüz)
 // ============================================================
 
+// ⚠️ LÜTFEN BURAYA KENDİ GITHUB RAW RESİM LİNKLERİNİZİ YAPIŞTIRIN ⚠️
+const IKN_YANGIN = 'https://raw.githubusercontent.com/itfaiyeseydisehir-ia/icap-takip-sistemi/main/yangin.png';
+const IKN_KURTARMA = 'https://raw.githubusercontent.com/itfaiyeseydisehir-ia/icap-takip-sistemi/main/kask.png';
+const IKN_DIGER = 'https://raw.githubusercontent.com/itfaiyeseydisehir-ia/icap-takip-sistemi/main/dalgic.png';
+// ============================================================
+
 function ekranDegistir(id) {
   document.querySelectorAll('.ekran-orta, .ekran').forEach(e => e.classList.remove('aktif'));
   const hedef = document.getElementById(id);
@@ -137,7 +143,6 @@ function realtimeBaslat() {
 async function panelYukle() {
   if (!mevcutPersonel) return;
 
-  // Aktif icaplar
   const { data: aktifler } = await sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol)').eq('durum', 'aktif').order('baslama_zamani', { ascending: true });
   document.getElementById('aktifIcapSayisi').innerText = aktifler ? aktifler.length : 0;
   document.getElementById('kpiVardiya').innerText = (sistemAyar.aktif_vardiya || '–') + '. Vardiya';
@@ -158,10 +163,8 @@ async function panelYukle() {
   } else { aHtml = '<div class="bos">Şu an icapta personel yok.</div>'; }
   document.getElementById('aktifIcapListe').innerHTML = aHtml;
 
-  // Hazır icapçılar
   const { data: hazirlar } = await sb.from('hazir_icapcilar').select('*, er:er_personel_id(ad_soyad), sofor:sofor_personel_id(ad_soyad)').eq('durum', 'aktif').gte('bitis_zamani', new Date().toISOString());
 
-  // Bakiye
   const { data: icapGecmis } = await sb.from('icap_gorevleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('baslama_zamani', { ascending: false });
   const { data: izinGecmis } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('izin_tarihi', { ascending: false });
 
@@ -209,7 +212,6 @@ async function panelYukle() {
 
   await rolIcerikCiz(aktifler, hazirlar);
 
-  // Loglar
   let logHtml = '';
   try {
     const { data: loglar } = await sb.from('log_kayitlari').select('*').order('ne_zaman', { ascending: false }).limit(10);
@@ -265,12 +267,25 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     } else if (mevcutPersonel.vardiya) {
       if (mevcutPersonel.vardiya === sistemAyar.aktif_vardiya) { baslatabilir = false; uyari = "Şu an nöbetçi vardiyadasınız. Asli görevinizdesiniz."; }
     }
-    const hizli = ['🔥 Yangın', '🆘 Arama Kurtarma', '🚰 Diğer Görevler'];
+    
+    // ✅ GÜNCELLENMİŞ İKONLU BUTON YAPISI
+    const hizliGorevler = [
+      { metin: 'Yangın', resim: IKN_YANGIN },
+      { metin: 'Arama Kurtarma', resim: IKN_KURTARMA },
+      { metin: 'Diğer Görevler', resim: IKN_DIGER }
+    ];
+
     gorevHtml += `<div class="icap-kart ${!baslatabilir ? 'kilitli' : ''}">
       <div class="icap-ust"><div class="icap-ikon">🚨</div>
         <div><div class="icap-baslik">Yeni İcap Görevi</div><div class="icap-alt">Görev türünü seçin, tek dokunuşla başlatın</div></div></div>
       ${!baslatabilir ? `<div class="uyari">⚠️ <span>${esc(uyari)}</span></div>` : ''}
-      <div class="hizli-sec">${hizli.map(h => `<button type="button" class="hizli-btn" ${!baslatabilir ? 'disabled' : ''} onclick="hizliAciklama(this)">${h}</button>`).join('')}</div>
+      <div class="hizli-sec">
+        ${hizliGorevler.map(h => `
+          <button type="button" class="hizli-btn" data-metin="${h.metin}" ${!baslatabilir ? 'disabled' : ''} onclick="hizliAciklama(this)" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:10px 5px;">
+            <img src="${h.resim}" alt="${h.metin}" style="width:32px; height:32px; object-fit:contain;">
+            <span style="font-size:12px; font-weight:700;">${h.metin}</span>
+          </button>`).join('')}
+      </div>
       <textarea id="gorevAciklama" rows="2" placeholder="Açıklama (isteğe bağlı) — örn: Mahalle, adres..." ${!baslatabilir ? 'disabled' : ''}></textarea>
       <button type="button" class="icap-baslat" onclick="icapBaslat()" ${!baslatabilir ? 'disabled' : ''}>▶ İCAP GÖREVİNİ BAŞLAT</button>
     </div>`;
@@ -302,7 +317,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
             </div>
             ${rol === 'super_admin' ? `
             <div style="display:flex; flex-direction:column; gap:4px;">
-              <button type="button" class="btn btn-outline" style="padding:4px 8px; font-size:11px; margin:0; min-height:auto; width:auto; white-space:nowrap;" onclick="hazirIcapciModalAc(${h.vardiya})">Düzenle</button>
+              <button type="button" class="btn btn-outline" style="padding:4px 8px; font-size:11px; margin:0; min-height:auto; width:auto; color:#18202b; border:1px solid #d5dce5; border-radius:4px; white-space:nowrap;" onclick="hazirIcapciModalAc(${h.vardiya})">Düzenle</button>
               <button type="button" class="btn btn-danger" style="padding:4px 8px; font-size:11px; margin:0; min-height:auto; width:auto; background:#9a0c23; color:#ffffff; border:none; border-radius:4px; white-space:nowrap;" onclick="icapciEkipSil('${h.id}')">Sil</button>
             </div>
             ` : ''}
@@ -375,7 +390,10 @@ function hizliAciklama(btn) {
   document.querySelectorAll('.hizli-btn').forEach(b => b.classList.remove('secili'));
   if (secili) { ta.value = ''; return; }
   btn.classList.add('secili');
-  ta.value = btn.innerText.replace(/^[^\p{L}]+/u, '').trim();
+  
+  // ✅ Butonun içindeki yazıyı değil, data-metin özelliğindeki yazıyı alıyoruz
+  ta.value = btn.dataset.metin; 
+  
   if (navigator.vibrate) navigator.vibrate(15);
 }
 
@@ -464,7 +482,6 @@ async function hazirIcapciModalAc(varsayilanVardiya = null) {
 
   if (mevcutPersonel.rol === 'vardiya_cavusu') {
     if (!mevcutPersonel.vardiya) return toast("Vardiyanız sistemde tanımlı değil. Yöneticinize başvurun.");
-    // ✅ NÖBETÇİ VARDİYA KONTROLÜ
     if (parseInt(mevcutPersonel.vardiya) === sistemAyar.aktif_vardiya) {
       return toast("Vardiyanız şu anda 24 saat esaslı nöbette olduğu için icapçı seçimi yapamazsınız. Lütfen nöbet değişimini bekleyin.");
     }
@@ -475,7 +492,6 @@ async function hazirIcapciModalAc(varsayilanVardiya = null) {
     const v1 = sistemAyar.aktif_vardiya === 1;
     const v2 = sistemAyar.aktif_vardiya === 2;
     const v3 = sistemAyar.aktif_vardiya === 3;
-    // Eğer dışarıdan bir vardiya parametresi geldiyse onu seç, yoksa nöbetçi olmayan ilk vardiyayı seç
     let defaultSec = varsayilanVardiya || (v1 ? 2 : (v2 ? 3 : 1));
 
     vardiyaSecimiHtml = `<div class="form-grup"><label>Hangi Vardiya İçin?</label><select id="secVardiya" onchange="hazirPersonelleriGetir()">
@@ -505,7 +521,6 @@ async function hazirPersonelleriGetir() {
     return;
   }
 
-  // ✅ NÖBETÇİ VARDİYA KONTROLÜ (Ekstra Güvenlik)
   if (vardiya === sistemAyar.aktif_vardiya) {
     document.getElementById('hazirPersonelAlan').innerHTML = `<div class="uyari" style="background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px; border-radius:8px;">⚠️ <span><b>${vardiya}. Vardiya</b> şu anda 24 saat esaslı nöbette olduğu için icapçı seçilemez.</span></div>`;
     return;
@@ -513,15 +528,11 @@ async function hazirPersonelleriGetir() {
 
   const { data: personeller } = await sb.from('personel').select('*').eq('vardiya', vardiya);
   const liste = personeller || [];
-  
-  // Grup Amiri'ni bu seçimden tamamen çıkar
   const filtrelenmisListe = liste.filter(p => p.rol !== 'grup_amiri');
   
-  // Er ve Şoför Listeleri
   let erler = filtrelenmisListe.filter(p => p.nitelik === 'er');
   let soforler = filtrelenmisListe.filter(p => p.nitelik === 'sofor');
 
-  // ✅ VARDİYA ÇAVUŞU KENDİNİ SEÇEBİLSİN
   if (mevcutPersonel.rol === 'vardiya_cavusu' && parseInt(mevcutPersonel.vardiya) === vardiya) {
     if (!erler.some(p => p.id === mevcutPersonel.id)) erler.push(mevcutPersonel);
     if (!soforler.some(p => p.id === mevcutPersonel.id)) soforler.push(mevcutPersonel);
@@ -553,7 +564,6 @@ async function hazirKaydet() {
   const simdi = new Date(); 
   const bitis = new Date(simdi.getTime() + (48 * 60 * 60 * 1000));
 
-  // Önce Yeni Seçimi Kaydet
   const { data: yeniKayit, error: insertError } = await sb.from('hazir_icapcilar').insert([{ 
     vardiya: vardiya, 
     er_personel_id: erId, 
@@ -566,10 +576,9 @@ async function hazirKaydet() {
 
   if (insertError) {
     toast("Kayıt hatası: " + insertError.message);
-    return; // Hata varsa eski kayıtları bozma
+    return; 
   }
 
-  // Yeni kayıt başarılıysa, eski aktif kayıtları iptal et (yeni eklenen hariç)
   if (yeniKayit && yeniKayit.length > 0) {
     await sb.from('hazir_icapcilar')
       .update({ durum: 'iptal' })
@@ -584,7 +593,6 @@ async function hazirKaydet() {
   panelYukle();
 }
 
-// ✅ YENİ FONKSİYON: Süper Admin için İcap Ekibini İptal Etme / Silme
 async function icapciEkipSil(id) {
   if (!confirm("Bu İcap Ekibini iptal etmek/silmek istediğinize emin misiniz?")) return;
   const { error } = await sb.from('hazir_icapcilar').update({ durum: 'iptal' }).eq('id', id);
