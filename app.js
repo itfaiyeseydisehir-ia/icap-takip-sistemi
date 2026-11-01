@@ -475,11 +475,21 @@ async function hazirPersonelleriGetir() {
   // 1. Grup Amiri'ni bu seçimden tamamen çıkar
   const filtrelenmisListe = liste.filter(p => p.rol !== 'grup_amiri');
   
-  // 2. Er Listesi: Niteliği 'er' olanlar (Çavuş olsa bile listede çıkar)
-  const erler = filtrelenmisListe.filter(p => p.nitelik === 'er' || p.rol === 'itfaiye_eri' || p.rol === 'vardiya_cavusu');
+  // 2. Er Listesi: Niteliği 'er' olanlar. (Çavuşlar her iki listede de çıkabilir)
+  const erler = filtrelenmisListe.filter(p => {
+    if (p.rol === 'vardiya_cavusu') return true; // Çavuş her iki listeye de girebilir
+    if (p.nitelik === 'yok') return false; // İdari personel giremez
+    if (p.nitelik) return p.nitelik === 'er'; // Nitelik varsa sadece ona bak
+    return p.rol === 'itfaiye_eri'; // Nitelik yoksa eski role bak
+  });
   
-  // 3. Şoför Listesi: Niteliği 'sofor' olanlar
-  const soforler = filtrelenmisListe.filter(p => p.nitelik === 'sofor' || p.rol === 'itfaiye_soforu');
+  // 3. Şoför Listesi: Niteliği 'sofor' olanlar.
+  const soforler = filtrelenmisListe.filter(p => {
+    if (p.rol === 'vardiya_cavusu') return true; // Çavuş her iki listeye de girebilir
+    if (p.nitelik === 'yok') return false; // İdari personel giremez
+    if (p.nitelik) return p.nitelik === 'sofor'; // Nitelik varsa sadece ona bak
+    return p.rol === 'itfaiye_soforu'; // Nitelik yoksa eski role bak
+  });
   
   document.getElementById('hazirPersonelAlan').innerHTML = `
     <div class="form-grup"><label>İtfaiye Eri / Çavuş</label>
