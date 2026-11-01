@@ -302,7 +302,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       secilenlerHtml = `<p class="alt-not" style="margin-bottom:10px;">İstirahat dönemi için 1 Er ve 1 Şoför seçin.</p>`;
     }
 
-    gorevHtml += `<div class="kart" style="margin-top:16px;">${baslikHtml('🚨', 'Hazır İcapçı Seçimi')}
+    gorevHtml += `<div class="kart" style="margin-top:16px;">${baslikHtml('🚨', 'İcapçı Seçimi')}
       ${secilenlerHtml}
       <button type="button" class="btn btn-mavi" style="margin:0" onclick="hazirIcapciModalAc()">${ilgiliHazirlar?.length > 0 ? 'Seçimi Değiştir' : 'Personel Seç'}</button>
     </div>`;
@@ -456,7 +456,7 @@ async function hazirIcapciModalAc() {
     vardiyaSecimiHtml = `<input type="hidden" id="secVardiya" value="${mevcutPersonel.vardiya}">`;
   }
   const html = `<div class="modal aktif" id="hazirModal"><div class="modal-content">
-    <h3>🚨 Hazır İcapçı Seçimi</h3>
+    <h3>🚨 İcapçı Seçimi</h3>
     <p class="alt-not">48 saatlik istirahat dönemi için 1 Er ve 1 Şoför seçiniz.</p>
     ${vardiyaSecimiHtml}
     <div id="hazirPersonelAlan"></div>
@@ -475,26 +475,16 @@ async function hazirPersonelleriGetir() {
   // 1. Grup Amiri'ni bu seçimden tamamen çıkar
   const filtrelenmisListe = liste.filter(p => p.rol !== 'grup_amiri');
   
-  // 2. Er Listesi: Niteliği 'er' olanlar. (Çavuşlar her iki listede de çıkabilir)
-  const erler = filtrelenmisListe.filter(p => {
-    if (p.rol === 'vardiya_cavusu') return true; // Çavuş her iki listeye de girebilir
-    if (p.nitelik === 'yok') return false; // İdari personel giremez
-    if (p.nitelik) return p.nitelik === 'er'; // Nitelik varsa sadece ona bak
-    return p.rol === 'itfaiye_eri'; // Nitelik yoksa eski role bak
-  });
+  // 2. Er Listesi: SADECE niteliği 'er' olanlar girer (Rolü çavuş olsa bile)
+  const erler = filtrelenmisListe.filter(p => p.nitelik === 'er');
   
-  // 3. Şoför Listesi: Niteliği 'sofor' olanlar.
-  const soforler = filtrelenmisListe.filter(p => {
-    if (p.rol === 'vardiya_cavusu') return true; // Çavuş her iki listeye de girebilir
-    if (p.nitelik === 'yok') return false; // İdari personel giremez
-    if (p.nitelik) return p.nitelik === 'sofor'; // Nitelik varsa sadece ona bak
-    return p.rol === 'itfaiye_soforu'; // Nitelik yoksa eski role bak
-  });
+  // 3. Şoför Listesi: SADECE niteliği 'sofor' olanlar girer (Rolü çavuş olsa bile)
+  const soforler = filtrelenmisListe.filter(p => p.nitelik === 'sofor');
   
   document.getElementById('hazirPersonelAlan').innerHTML = `
     <div class="form-grup"><label>İtfaiye Eri / Çavuş</label>
       <select id="secEr">
-        ${erler.length ? erler.map(e => `<option value="${e.id}">${esc(e.ad_soyad)} (${esc(rolAd(e.rol))})</option>`).join('') : '<option value="">Personel bulunamadı</option>'}
+        ${erler.length ? erler.map(e => `<option value="${e.id}">${esc(e.ad_soyad)} (${esc(rolAd(e.rol))})</option>`).join('') : '<option value="">Er bulunamadı</option>'}
       </select>
     </div>
     <div class="form-grup"><label>İtfaiye Şoförü / Çavuş</label>
