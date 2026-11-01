@@ -290,20 +290,29 @@ async function rolIcerikCiz(aktifler, hazirlar) {
 
     if (ilgiliHazirlar && ilgiliHazirlar.length > 0) {
       ilgiliHazirlar.forEach(h => {
-        const erAd = h.er?.ad_soyad || '⚠️ Silinmiş Personel';
-        const soforAd = h.sofor?.ad_soyad || '⚠️ Silinmiş Personel';
+        const erAd = h.er?.ad_soyad || 'Silinmiş Personel';
+        const soforAd = h.sofor?.ad_soyad || 'Silinmiş Personel';
         
         secilenlerHtml += `<div style="background:#eef6f1; border:1px solid #c7ead5; border-radius:8px; padding:10px; margin-bottom:8px;">
-          <div style="font-size:12px; font-weight:800; color:var(--green); margin-bottom:4px;">${h.vardiya}. Vardiya İstirahat Ekibi</div>
-          <div style="font-size:13px; color:#18202b;">👨‍🚒 ${esc(erAd)}</div>
-          <div style="font-size:13px; color:#18202b; margin-top:2px;">🚛 ${esc(soforAd)}</div>
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="font-size:12px; font-weight:800; color:var(--green); margin-bottom:4px;">${h.vardiya}. Vardiya İcap Ekibi</div>
+              <div style="font-size:13px; color:#18202b;">Er - ${esc(erAd)}</div>
+              <div style="font-size:13px; color:#18202b; margin-top:2px;">Şoför - ${esc(soforAd)}</div>
+            </div>
+            ${rol === 'super_admin' ? `
+            <div style="display:flex; flex-direction:column; gap:4px;">
+              <button type="button" class="btn btn-outline" style="padding:4px 8px; font-size:11px; margin:0; min-height:auto; width:auto; white-space:nowrap;" onclick="hazirIcapciModalAc(${h.vardiya})">Düzenle</button>
+              <button type="button" class="btn btn-danger" style="padding:4px 8px; font-size:11px; margin:0; min-height:auto; width:auto; background:#9a0c23; white-space:nowrap;" onclick="icapciEkipSil('${h.id}')">Sil</button>
+            </div>
+            ` : ''}
+          </div>
         </div>`;
       });
     } else {
       secilenlerHtml = `<p class="alt-not" style="margin-bottom:10px;">İstirahat dönemi için 1 Er ve 1 Şoför seçin.</p>`;
     }
 
-    // ✅ BAŞLIK DEĞİŞTİRİLDİ: "İCAP GÖREVLİ PERSONEL"
     gorevHtml += `<div class="kart" style="margin-top:16px;">${baslikHtml('🚨', 'İCAP GÖREVLİ PERSONEL')}
       ${secilenlerHtml}
       <button type="button" class="btn btn-mavi" style="margin:0" onclick="hazirIcapciModalAc()">${ilgiliHazirlar?.length > 0 ? 'Görevli Personeli Değiştir' : 'Görevli Personel Seç'}</button>
@@ -450,7 +459,7 @@ async function izinTalepEt() {
   panelYukle();
 }
 
-async function hazirIcapciModalAc() {
+async function hazirIcapciModalAc(varsayilanVardiya = null) {
   if (document.getElementById('hazirModal')) return;
 
   if (mevcutPersonel.rol === 'vardiya_cavusu') {
@@ -463,11 +472,11 @@ async function hazirIcapciModalAc() {
 
   let vardiyaSecimiHtml = '';
   if (mevcutPersonel.rol !== 'vardiya_cavusu') {
-    // ✅ Nöbetçi olan vardiyayı dropdown'da disable yap ve varsayılan olarak nöbetçi olmayanı seç
     const v1 = sistemAyar.aktif_vardiya === 1;
     const v2 = sistemAyar.aktif_vardiya === 2;
     const v3 = sistemAyar.aktif_vardiya === 3;
-    const defaultSec = v1 ? 2 : (v2 ? 3 : 1);
+    // Eğer dışarıdan bir vardiya parametresi geldiyse onu seç, yoksa nöbetçi olmayan ilk vardiyayı seç
+    let defaultSec = varsayilanVardiya || (v1 ? 2 : (v2 ? 3 : 1));
 
     vardiyaSecimiHtml = `<div class="form-grup"><label>Hangi Vardiya İçin?</label><select id="secVardiya" onchange="hazirPersonelleriGetir()">
       <option value="1" ${v1 ? 'disabled' : (defaultSec === 1 ? 'selected' : '')}>1. Vardiya ${v1 ? '(Nöbette)' : ''}</option>
@@ -573,6 +582,18 @@ async function hazirKaydet() {
   toast("İcapçılar belirlendi.", "basari");
   await logEkle("İcapçı Seçti", `${vardiya}. Vardiya`);
   panelYukle();
+}
+
+// ✅ YENİ FONKSİYON: Süper Admin için İcap Ekibini İptal Etme / Silme
+async function icapciEkipSil(id) {
+  if (!confirm("Bu İcap Ekibini iptal etmek/silmek istediğinize emin misiniz?")) return;
+  const { error } = await sb.from('hazir_icapcilar').update({ durum: 'iptal' }).eq('id', id);
+  if (error) toast("Hata: " + error.message);
+  else { 
+    toast("İcap Ekibi silindi.", "basari"); 
+    await logEkle("İcap Ekibi Sildi", "Süper Admin İşlemi"); 
+    panelYukle(); 
+  }
 }
 
 // ---------- SÜPER ADMİN PANELİ ----------
