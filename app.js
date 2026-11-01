@@ -303,7 +303,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
             ${rol === 'super_admin' ? `
             <div style="display:flex; flex-direction:column; gap:4px;">
               <button type="button" class="btn btn-outline" style="padding:4px 8px; font-size:11px; margin:0; min-height:auto; width:auto; white-space:nowrap;" onclick="hazirIcapciModalAc(${h.vardiya})">Düzenle</button>
-              <button type="button" class="btn btn-danger" style="padding:4px 8px; font-size:11px; margin:0; min-height:auto; width:auto; background:#9a0c23; white-space:nowrap;" onclick="icapciEkipSil('${h.id}')">Sil</button>
+              <button type="button" class="btn btn-danger" style="padding:4px 8px; font-size:11px; margin:0; min-height:auto; width:auto; background:#9a0c23; color:#ffffff; border:none; border-radius:4px; white-space:nowrap;" onclick="icapciEkipSil('${h.id}')">Sil</button>
             </div>
             ` : ''}
           </div>
