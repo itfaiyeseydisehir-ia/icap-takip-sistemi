@@ -190,9 +190,6 @@ async function panelYukle() {
   const toplam = icapGecmis ? icapGecmis.reduce((s, x) => s + (x.toplam_dakika || 0), 0) : 0;
   const kullanilan = izinGecmis ? izinGecmis.reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0) : 0;
   const kalan = toplam - kullanilan;
-  const kpiB = document.getElementById('kpiBakiye');
-  kpiB.innerText = (kalan < 0 ? '-' : '') + sureYaz(kalan);
-  kpiB.style.color = kalan < 0 ? '#c8102e' : '#12805c';
 
   const tumGecmis = [];
   if (icapGecmis) icapGecmis.forEach(g => tumGecmis.push({ tip: 'icap', tarih: g.baslama_zamani, data: g }));
@@ -246,9 +243,9 @@ async function panelYukle() {
 
   const logKutu = document.getElementById('logPenceresi');
   if (logKutu) {
-    logKutu.style.display = 'block';
     logKutu.innerHTML = `${baslikHtml('📜', 'Sistem Hareketleri')}<div class="scroll">${logHtml}</div>`;
   }
+  panelYenile();
 }
 
 // ---------- ROL BAZLI İÇERİK ----------
@@ -372,7 +369,6 @@ async function rolIcerikCiz(aktifler, hazirlar) {
 
   }
 
-  document.getElementById('kpiBekleyen').innerText = ['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol) ? bekleyenSayi : '–';
   el.innerHTML = html;
   hizliIslemleriCiz(rol, bekleyenSayi);
   const gk = document.getElementById('icapGorevKart');
@@ -394,10 +390,32 @@ const IKON = {
   ayar: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
 };
 
-function hizliGit(id) {
-  const e = document.getElementById(id);
-  if (e) { e.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (navigator.vibrate) navigator.vibrate(10); }
-  else toast("Bu bölüm şu an görüntülenemiyor.");
+// Açılır panel penceresi: depodaki içeriği pencerede gösterir, veri yenilenince canlı güncellenir
+let acikPanel = null;
+
+function panelAc(kaynakId, baslik) {
+  if (!document.getElementById(kaynakId)) return toast("Bu bölüm şu an görüntülenemiyor.");
+  document.getElementById('panelModal')?.remove();
+  acikPanel = { kaynakId, baslik };
+  const html = `<div class="modal aktif" id="panelModal" onclick="if(event.target===this)panelKapat()"><div class="modal-content" style="max-width:560px">
+    <div class="modal-baslik"><h3>${esc(baslik)}</h3><button type="button" class="btn btn-outline btn-sm" onclick="panelKapat()">Kapat ✕</button></div>
+    <div id="panelModalGovde" class="panel-govde"></div>
+  </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  panelYenile();
+  if (navigator.vibrate) navigator.vibrate(10);
+}
+
+function panelKapat() {
+  acikPanel = null;
+  document.getElementById('panelModal')?.remove();
+}
+
+function panelYenile() {
+  if (!acikPanel) return;
+  const govde = document.getElementById('panelModalGovde');
+  const kaynak = document.getElementById(acikPanel.kaynakId);
+  if (govde && kaynak) govde.innerHTML = kaynak.innerHTML;
 }
 
 function hizliIslemleriCiz(rol, bekleyenSayi) {
@@ -407,17 +425,18 @@ function hizliIslemleriCiz(rol, bekleyenSayi) {
   const tuslar = [];
   const ekle = (renk, ikon, metin, onclick, sayac = 0) => tuslar.push({ renk, ikon, metin, onclick, sayac });
 
+  // Sıra: İcap Personeli Seç, Bakiyem, İzin Talebi, sonra diğerleri
+  if (yonetici) ekle('a-mavi', IKON.ekip, 'İcap Personeli Seç', 'hazirIcapciModalAc()');
+  ekle('a-yesil', IKON.bakiye, 'Bakiyem', "panelAc('kisiselBakiyeKart','İcap / İzin Bakiyem')");
   ekle('a-mor', IKON.izin, 'İzin Talebi', 'izinModalAc()');
-  ekle('a-yesil', IKON.bakiye, 'Bakiyem', "hizliGit('kisiselBakiyeKart')");
   if (yonetici) {
-    ekle('a-mavi', IKON.ekip, 'İcap Personeli Seç', 'hazirIcapciModalAc()');
     const icapSay = document.querySelectorAll('#onayIcapKart .onay-item').length;
     const izinSay = document.querySelectorAll('#onayIzinKart .onay-item').length;
-    ekle('a-turuncu', IKON.onay, 'İcap Onayları', "hizliGit('onayIcapKart')", icapSay);
-    ekle('a-kehribar', IKON.izinOnay, 'İzin Onayları', "hizliGit('onayIzinKart')", izinSay);
+    ekle('a-turuncu', IKON.onay, 'İcap Onayları', "panelAc('onayIcapKart','Onay Bekleyen İcaplar')", icapSay);
+    ekle('a-kehribar', IKON.izinOnay, 'İzin Onayları', "panelAc('onayIzinKart','Onay Bekleyen İzinler')", izinSay);
     ekle('a-pembe', IKON.rapor, 'Raporlar', 'raporModalAc()');
   }
-  ekle('a-lacivert', IKON.log, 'Sistem Hareketleri', "hizliGit('logPenceresi')");
+  ekle('a-lacivert', IKON.log, 'Sistem Hareketleri', "panelAc('logPenceresi','Sistem Hareketleri')");
   if (yonetici) ekle('a-petrol', IKON.yedek, 'Buluta Yedekle', 'veriYedekle()');
   if (rol === 'super_admin') {
     ekle('a-kirmizi', IKON.admin, 'Yönetim Paneli', 'adminPaneliAc()');
