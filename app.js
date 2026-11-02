@@ -154,6 +154,7 @@ async function panelYukle() {
     if (ayarTaze) sistemAyar = ayarTaze;
   } catch (e) {}
   document.getElementById('kpiVardiya').innerText = (sistemAyar.aktif_vardiya || '–') + '. Vardiya';
+  nobetCiz();
 
   let aHtml = '';
   if (aktifler && aktifler.length > 0) {
@@ -285,15 +286,18 @@ async function rolIcerikCiz(aktifler, hazirlar) {
 
     gorevHtml += `<div class="icap-kart ${!baslatabilir ? 'kilitli' : ''}">
       <div class="icap-ust"><div class="icap-ikon">🚨</div>
-        <div><div class="icap-baslik">Yeni İcap Görevi</div><div class="icap-alt">Görev türünü seçin, tek dokunuşla başlatın</div></div></div>
+        <div class="icap-ust-metin"><div class="icap-baslik">Yeni İcap Görevi</div><div class="icap-alt">Görev türünü seçin, tek dokunuşla başlatın</div></div>
+        <span class="durum-pil ${baslatabilir ? 'hazir' : 'kilit'}">${baslatabilir ? '● HAZIR' : '🔒 KİLİTLİ'}</span></div>
       ${!baslatabilir ? `<div class="uyari">⚠️ <span>${esc(uyari)}</span></div>` : ''}
+      <div class="adim-etiket">GÖREV TÜRÜ</div>
       <div class="hizli-sec">
         ${hizliGorevler.map(h => `
-          <button type="button" class="hizli-btn" data-metin="${h.metin}" ${!baslatabilir ? 'disabled' : ''} onclick="hizliAciklama(this)" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:10px 5px;">
-            <img src="${h.resim}" alt="${h.metin}" style="width:32px; height:32px; object-fit:contain;">
-            <span style="font-size:12px; font-weight:700;">${h.metin}</span>
+          <button type="button" class="hizli-btn" data-metin="${h.metin}" ${!baslatabilir ? 'disabled' : ''} onclick="hizliAciklama(this)">
+            <img src="${h.resim}" alt="${h.metin}">
+            <span>${h.metin}</span>
           </button>`).join('')}
       </div>
+      <div class="adim-etiket">AÇIKLAMA</div>
       <textarea id="gorevAciklama" rows="2" placeholder="Açıklama (isteğe bağlı) — örn: Mahalle, adres..." ${!baslatabilir ? 'disabled' : ''}></textarea>
       <button type="button" class="icap-baslat" onclick="icapBaslat()" ${!baslatabilir ? 'disabled' : ''}>▶ İCAP GÖREVİNİ BAŞLAT</button>
     </div>`;
@@ -311,29 +315,29 @@ async function rolIcerikCiz(aktifler, hazirlar) {
         const erAd = h.er?.ad_soyad || 'Silinmiş Personel';
         const soforAd = h.sofor?.ad_soyad || 'Silinmiş Personel';
         
-        secilenlerHtml += `<div style="background:#eef6f1; border:1px solid #c7ead5; border-radius:8px; padding:10px; margin-bottom:8px;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <div>
-              <div style="font-size:12px; font-weight:800; color:var(--green); margin-bottom:4px;">${h.vardiya}. Vardiya İcap Ekibi</div>
-              <div style="font-size:13px; color:#18202b;">Er - ${esc(erAd)}</div>
-              <div style="font-size:13px; color:#18202b; margin-top:2px;">Şoför - ${esc(soforAd)}</div>
-            </div>
-            ${rol === 'super_admin' ? `
-            <div style="display:flex; flex-direction:column; gap:4px;">
-              <button type="button" class="btn btn-outline" style="padding:4px 8px; font-size:11px; margin:0; min-height:auto; width:auto; color:#18202b; border:1px solid #d5dce5; border-radius:4px; white-space:nowrap;" onclick="hazirIcapciModalAc(${h.vardiya})">Düzenle</button>
-              <button type="button" class="btn btn-danger" style="padding:4px 8px; font-size:11px; margin:0; min-height:auto; width:auto; background:#9a0c23; color:#ffffff; border:none; border-radius:4px; white-space:nowrap;" onclick="icapciEkipSil('${h.id}')">Sil</button>
-            </div>
-            ` : ''}
+        secilenlerHtml += `<div class="ekip-kart v${h.vardiya}">
+          <div class="ekip-rozet">${h.vardiya}<small>VARDİYA</small></div>
+          <div class="ekip-uyeler">
+            <div class="ekip-uye"><span class="ekip-uye-ikon">${IKON.er}</span><div><div class="ekip-uye-rol">İTFAİYE ERİ</div><div class="ekip-uye-ad">${esc(erAd)}</div></div></div>
+            <div class="ekip-uye"><span class="ekip-uye-ikon">${IKON.sofor}</span><div><div class="ekip-uye-rol">İTFAİYE ŞOFÖRÜ</div><div class="ekip-uye-ad">${esc(soforAd)}</div></div></div>
           </div>
+          ${rol === 'super_admin' ? `<div class="ekip-islem">
+            <button type="button" class="ikon-btn" title="Düzenle" onclick="hazirIcapciModalAc(${h.vardiya})">${IKON.duzenle}</button>
+            <button type="button" class="ikon-btn sil" title="Sil" onclick="icapciEkipSil('${h.id}')">${IKON.sil}</button>
+          </div>` : ''}
         </div>`;
       });
     } else {
-      secilenlerHtml = `<p class="alt-not" style="margin-bottom:10px;">İstirahat dönemi için 1 Er ve 1 Şoför seçin.</p>`;
+      secilenlerHtml = `<div class="ekip-bos">Henüz icap ekibi seçilmedi.<br>İstirahat dönemi için 1 Er ve 1 Şoför seçin.</div>`;
     }
 
-    gorevHtml += `<div class="kart" style="margin-top:16px;">${baslikHtml('🚨', 'İCAP GÖREVLİ PERSONEL')}
+    const ekipSayi = ilgiliHazirlar?.length || 0;
+    gorevHtml += `<div class="kart ekip-panel">
+      <div class="panel-ust"><div class="panel-ikon">${IKON.ekip}</div>
+        <div class="panel-ust-metin"><div class="panel-baslik">İcap Görevli Personel</div><div class="panel-alt">Nöbet dışı vardiyaların icap ekipleri</div></div>
+        ${ekipSayi > 0 ? `<span class="rozet r-yesil">${ekipSayi} ekip</span>` : ''}</div>
       ${secilenlerHtml}
-      <button type="button" class="btn btn-mavi" style="margin:0" onclick="hazirIcapciModalAc()">${ilgiliHazirlar?.length > 0 ? 'Görevli Personeli Değiştir' : 'Görevli Personel Seç'}</button>
+      <button type="button" class="ekip-degistir" onclick="hazirIcapciModalAc()">${IKON.ekip}<span>${ekipSayi > 0 ? 'Görevli Personeli Değiştir' : 'Görevli Personel Seç'}</span></button>
     </div>`;
   }
 
@@ -378,6 +382,10 @@ async function rolIcerikCiz(aktifler, hazirlar) {
 
 // ---------- HIZLI İŞLEMLER (BUTON IZGARASI) ----------
 const IKON = {
+  er: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>',
+  sofor: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 14.5V21M9.8 11 3.4 9.8M14.2 11l6.4-1.2"/></svg>',
+  duzenle: '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  sil: '<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>',
   izin: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg>',
   ekip: '<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>',
   onay: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',
@@ -389,6 +397,15 @@ const IKON = {
   admin: '<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"/></svg>',
   ayar: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
 };
+
+// Nöbetçi ekip şeridi: vardiya 1-2-3 göstergeleri ve bugünün tarihi
+function nobetCiz() {
+  const v = sistemAyar.aktif_vardiya;
+  const chips = document.getElementById('nobetChips');
+  if (chips) chips.innerHTML = [1, 2, 3].map(n => `<div class="nobet-chip ${n === v ? 'aktif' : ''}" title="${n}. Vardiya">${n}</div>`).join('');
+  const t = document.getElementById('nobetTarih');
+  if (t) t.innerText = new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
 
 // Açılır panel penceresi: depodaki içeriği pencerede gösterir, veri yenilenince canlı güncellenir
 let acikPanel = null;
