@@ -15,7 +15,7 @@ function ekranDegistir(id) {
 }
 
 window.onerror = function (msg, url, line) {
-  alert("SİSTEM HATASI: " + msg + "\nSatır: " + line);
+  console.error("SİSTEM HATASI: " + msg + "\nSatır: " + line);
   return false;
 };
 
@@ -188,9 +188,12 @@ async function panelYukle() {
   const { data: icapGecmis } = await sb.from('icap_gorevleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('baslama_zamani', { ascending: false });
   const { data: izinGecmis } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('izin_tarihi', { ascending: false });
 
-  const toplam = icapGecmis ? icapGecmis.reduce((s, x) => s + (x.toplam_dakika || 0), 0) : 0;
+  // ✅ KADRO/STATÜ ÇARPANI (Memur 1x, İşçi 1.5x)
+  const carpan = mevcutPersonel.kadro === 'memur' ? 1 : 1.5;
+  const toplamHam = icapGecmis ? icapGecmis.reduce((s, x) => s + (x.toplam_dakika || 0), 0) : 0;
+  const toplamHak = Math.floor(toplamHam * carpan); // Biriken hak
   const kullanilan = izinGecmis ? izinGecmis.reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0) : 0;
-  const kalan = toplam - kullanilan;
+  const kalan = toplamHak - kullanilan;
 
   const tumGecmis = [];
   if (icapGecmis) icapGecmis.forEach(g => tumGecmis.push({ tip: 'icap', tarih: g.baslama_zamani, data: g }));
@@ -202,10 +205,12 @@ async function panelYukle() {
     let rows = '';
     tumGecmis.forEach(x => {
       if (x.tip === 'icap') {
+        // ✅ Geçmiş listesinde de çarpanlı süre gösteriliyor
+        const kazanilanDk = Math.floor((x.data.toplam_dakika || 0) * carpan);
         rows += `<tr>
           <td><span class="rozet r-yesil">İcap</span></td>
           <td><div class="hucre-isim">${tarihYaz(x.data.baslama_zamani)}</div><div class="hucre-alt">${saatYaz(x.data.baslama_zamani)} - ${saatYaz(x.data.bitis_zamani)}${x.data.gorev_aciklamasi ? ' · ' + esc(x.data.gorev_aciklamasi) : ''}</div></td>
-          <td class="sag artı">+${sureYaz(x.data.toplam_dakika)}</td></tr>`;
+          <td class="sag artı">+${sureYaz(kazanilanDk)}</td></tr>`;
       } else {
         rows += `<tr>
           <td><span class="rozet r-mor">İzin</span></td>
@@ -220,7 +225,7 @@ async function panelYukle() {
     <div class="kart">
       ${baslikHtml('💼', 'İcap / İzin Bakiyem')}
       <div class="bakiye-grid">
-        <div class="bakiye-item"><div class="bakiye-etiket">Biriken</div><div class="bakiye-deger">${sureYaz(toplam)}</div></div>
+        <div class="bakiye-item"><div class="bakiye-etiket">Biriken (${carpan}x)</div><div class="bakiye-deger">${sureYaz(toplamHak)}</div></div>
         <div class="bakiye-item"><div class="bakiye-etiket">Kullanılan</div><div class="bakiye-deger">${sureYaz(kullanilan)}</div></div>
         <div class="bakiye-item"><div class="bakiye-etiket">Kalan</div><div class="bakiye-deger" style="color:${kalan < 0 ? '#c8102e' : '#12805c'}">${kalan < 0 ? '-' : ''}${sureYaz(kalan)}</div></div>
       </div>
@@ -277,11 +282,11 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       if (mevcutPersonel.vardiya === sistemAyar.aktif_vardiya) { baslatabilir = false; uyari = "Şu an nöbetçi vardiyadasınız. Asli görevinizdesiniz."; }
     }
     
-    // ✅ GÜNCELLENMİŞ İKONLU BUTON YAPISI
+    // ✅ GÜNCELLENMİŞ İKONLU BUTON YAPISI VE FALLBACK (RESİM YÜKLENEMEZSE EMOJİ)
     const hizliGorevler = [
-      { metin: 'Yangın', resim: IKN_YANGIN },
-      { metin: 'Arama Kurtarma', resim: IKN_KURTARMA },
-      { metin: 'Diğer Görevler', resim: IKN_DIGER }
+      { metin: 'Yangın', resim: IKN_YANGIN, emoji: '🔥' },
+      { metin: 'Arama Kurtarma', resim: IKN_KURTARMA, emoji: '🆘' },
+      { metin: 'Diğer Görevler', resim: IKN_DIGER, emoji: '🚰' }
     ];
 
     gorevHtml += `<div class="icap-kart ${!baslatabilir ? 'kilitli' : ''}">
@@ -293,7 +298,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       <div class="hizli-sec">
         ${hizliGorevler.map(h => `
           <button type="button" class="hizli-btn" data-metin="${h.metin}" ${!baslatabilir ? 'disabled' : ''} onclick="hizliAciklama(this)">
-            <img src="${h.resim}" alt="${h.metin}">
+            <img src="${h.resim}" alt="${h.metin}" onerror="this.style.display='none'; this.nextElementSibling.style.fontSize='36px'; this.nextElementSibling.innerText = '${h.emoji}';">
             <span>${h.metin}</span>
           </button>`).join('')}
       </div>
@@ -398,7 +403,6 @@ const IKON = {
   ayar: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
 };
 
-// Nöbetçi ekip şeridi: vardiya 1-2-3 göstergeleri ve bugünün tarihi
 function nobetCiz() {
   const v = sistemAyar.aktif_vardiya;
   const chips = document.getElementById('nobetChips');
@@ -407,7 +411,6 @@ function nobetCiz() {
   if (t) t.innerText = new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-// Açılır panel penceresi: depodaki içeriği pencerede gösterir, veri yenilenince canlı güncellenir
 let acikPanel = null;
 
 function panelAc(kaynakId, baslik) {
@@ -442,7 +445,6 @@ function hizliIslemleriCiz(rol, bekleyenSayi) {
   const tuslar = [];
   const ekle = (renk, ikon, metin, onclick, sayac = 0) => tuslar.push({ renk, ikon, metin, onclick, sayac });
 
-  // Sıra: İcap Personeli Seç, Bakiyem, İzin Talebi, sonra diğerleri
   if (yonetici) ekle('a-mavi', IKON.ekip, 'İcap Personeli Seç', 'hazirIcapciModalAc()');
   ekle('a-yesil', IKON.bakiye, 'Bakiyem', "panelAc('kisiselBakiyeKart','İcap / İzin Bakiyem')");
   ekle('a-mor', IKON.izin, 'İzin Talebi', 'izinModalAc()');
@@ -460,7 +462,6 @@ function hizliIslemleriCiz(rol, bekleyenSayi) {
     ekle('a-lacivert', IKON.ayar, 'Sistem Ayarları', "adminPaneliAc('ayarlar')");
   }
 
-  // Bekleyen onay sayacı rozetleri (yalnızca onay butonlarında)
   const butonlar = tuslar.map(t => {
     const sayacHtml = (t.sayac && t.sayac > 0) ? `<div class="aksiyon-sayac">${t.sayac}</div>` : '';
     return `<button type="button" class="aksiyon-btn ${t.renk}" onclick="${t.onclick}">${sayacHtml}${t.ikon}<span>${t.metin}</span></button>`;
@@ -489,7 +490,6 @@ function raporModalAc() {
   document.body.insertAdjacentHTML('beforeend', html);
 }
 
-// ---------- HIZLI İCAP YARDIMCILARI ----------
 function hizliAciklama(btn) {
   const ta = document.getElementById('gorevAciklama');
   if (!ta) return;
@@ -497,10 +497,7 @@ function hizliAciklama(btn) {
   document.querySelectorAll('.hizli-btn').forEach(b => b.classList.remove('secili'));
   if (secili) { ta.value = ''; return; }
   btn.classList.add('secili');
-  
-  // ✅ Butonun içindeki yazıyı değil, data-metin özelliğindeki yazıyı alıyoruz
   ta.value = btn.dataset.metin; 
-  
   if (navigator.vibrate) navigator.vibrate(15);
 }
 
@@ -533,7 +530,9 @@ async function icapBitir(id) {
 
 async function onayla(id, tip) {
   const tablo = tip === 'icap' ? 'icap_gorevleri' : 'icap_izin_talepleri';
-  await sb.from(tablo).update({ durum: 'onaylandi', onaylayan_id: mevcutPersonel.id, onay_zamani: new Date().toISOString() }).eq('id', id);
+  const { error } = await sb.from(tablo).update({ durum: 'onaylandi', onaylayan_id: mevcutPersonel.id, onay_zamani: new Date().toISOString() }).eq('id', id);
+  if (error) return toast("Onaylanamadı: " + error.message);
+  
   toast("Onaylandı", "basari");
   await logEkle(tip === 'icap' ? "İcap Onayladı" : "İzin Onayladı");
   panelYukle();
@@ -543,7 +542,10 @@ async function reddet(id, tip) {
   const tablo = tip === 'icap' ? 'icap_gorevleri' : 'icap_izin_talepleri';
   const sebep = prompt("Red sebebi:");
   if (sebep === null) return;
-  await sb.from(tablo).update({ durum: 'reddedildi', onaylayan_id: mevcutPersonel.id, red_sebebi: sebep }).eq('id', id);
+  
+  const { error } = await sb.from(tablo).update({ durum: 'reddedildi', onaylayan_id: mevcutPersonel.id, red_sebebi: sebep }).eq('id', id);
+  if (error) return toast("Reddedilemedi: " + error.message);
+
   toast("Reddedildi");
   await logEkle(tip === 'icap' ? "İcap Reddetti" : "İzin Reddetti", sebep);
   panelYukle();
@@ -570,9 +572,17 @@ async function izinTalepEt() {
   const d = parseInt(document.getElementById('izinDakika').value || 0);
   const toplamDk = (s * 60) + d;
   if (toplamDk <= 0) return toast("Geçerli süre girin.");
+
   const { data: icaps } = await sb.from('icap_gorevleri').select('toplam_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
   const { data: izins } = await sb.from('icap_izin_talepleri').select('talep_edilen_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
-  const bakiye = (icaps || []).reduce((s, x) => s + (x.toplam_dakika || 0), 0) - (izins || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0);
+  
+  // ✅ KADRO ÇARPANI İLE BAKİYE HESABI
+  const carpan = mevcutPersonel.kadro === 'memur' ? 1 : 1.5;
+  const toplamHam = (icaps || []).reduce((s, x) => s + (x.toplam_dakika || 0), 0);
+  const toplamHak = Math.floor(toplamHam * carpan);
+  const kullanilan = (izins || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0);
+  const bakiye = toplamHak - kullanilan;
+  
   const eksiMi = toplamDk > bakiye;
   if (eksiMi && mevcutPersonel.rol !== 'grup_amiri' && mevcutPersonel.rol !== 'super_admin') {
     if (!confirm("Bakiyeniz yetersiz! Eksi bakiyeye düşecek. Sadece Grup Amiri onaylayabilir. Onaylıyor musunuz?")) return;
@@ -771,6 +781,12 @@ async function adminTab(tab) {
               <option value="3">3. Vardiya</option>
             </select>
           </div>
+          <div class="form-grup"><label>Kadro (Hak Çarpanı)</label>
+            <select id="addKadro">
+              <option value="isci">İşçi (1.5x İcap Hakkı)</option>
+              <option value="memur">Memur (1.0x İcap Hakkı)</option>
+            </select>
+          </div>
         </div>
         <button type="button" class="btn btn-success" style="margin:0;width:auto" onclick="personelEkle()">➕ Personeli Kaydet</button>
       </div>
@@ -788,7 +804,7 @@ async function adminTab(tab) {
 
       <div class="tbl-wrap">
         <table class="tbl">
-          <thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Rol / Nitelik</th><th>Vardiya</th><th>Durum</th><th class="sag">Sil</th></tr></thead>
+          <thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Rol / Nitelik</th><th>Kadro</th><th>Vardiya</th><th>Durum</th><th class="sag">Sil</th></tr></thead>
           <tbody id="adminPersonelTbody"></tbody>
         </table>
       </div>`;
@@ -831,17 +847,19 @@ function filtrelePersonelListesi(secim) {
 
   let rows = '';
   if (filtrelenmisListe.length === 0) {
-    rows = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#8d97a5;">Bu vardiyada kayıtlı personel bulunamadı.</td></tr>';
+    rows = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#8d97a5;">Bu vardiyada kayıtlı personel bulunamadı.</td></tr>';
   } else {
     filtrelenmisListe.forEach(p => {
       const vardiyaAd = p.vardiya ? p.vardiya + ". Vardiya" : "Gündüz";
       const durum = p.auth_user_id ? '<span class="rozet r-yesil">Aktif</span>' : '<span class="rozet r-turuncu">Kayıt Bekliyor</span>';
       const nitelikAd = p.nitelik === 'sofor' ? '🚛 Şoför' : (p.nitelik === 'er' ? '👨‍🚒 Er' : '');
+      const kadroAd = p.kadro === 'memur' ? '<span class="rozet r-mavi">Memur</span>' : '<span class="rozet r-turuncu">İşçi</span>';
       
       rows += `<tr>
         <td class="hucre-isim">${esc(p.ad_soyad)}</td>
         <td>${esc(p.email)}</td>
         <td>${rolRozet(p.rol)} <br><small style="color:#666">${nitelikAd}</small></td>
+        <td>${kadroAd}</td>
         <td>${vardiyaAd}</td>
         <td>${durum}</td>
         <td class="sag"><button type="button" class="sil-btn" onclick="personelSil('${p.id}')" title="Sil">🗑️</button></td>
@@ -858,6 +876,7 @@ async function personelEkle() {
   const rol = document.getElementById('addRol').value;
   const nitelik = document.getElementById('addNitelik').value;
   const vardiya = document.getElementById('addVardiya').value;
+  const kadro = document.getElementById('addKadro').value;
   
   if (!ad || !email) return toast("Lütfen tüm alanları doldurun.");
   
@@ -866,7 +885,8 @@ async function personelEkle() {
     email: email, 
     rol: rol, 
     nitelik: nitelik, 
-    vardiya: vardiya ? parseInt(vardiya) : null 
+    vardiya: vardiya ? parseInt(vardiya) : null,
+    kadro: kadro
   }]);
   
   if (error) toast("Hata: " + error.message);
