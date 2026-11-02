@@ -457,7 +457,7 @@ function hizliIslemleriCiz(rol, bekleyenSayi) {
   if (yonetici) ekle('a-petrol', IKON.yedek, 'Buluta Yedekle', 'veriYedekle()');
   if (rol === 'super_admin') {
     ekle('a-kirmizi', IKON.admin, 'Yönetim Paneli', 'adminPaneliAc()');
-    ekle('a-lacivert', IKON.ayar, 'Sistem Ayarları', "adminPaneliAc(); adminTab('ayarlar')");
+    ekle('a-lacivert', IKON.ayar, 'Sistem Ayarları', "adminPaneliAc('ayarlar')");
   }
 
   // Bekleyen onay sayacı rozetleri (yalnızca onay butonlarında)
@@ -712,7 +712,8 @@ async function icapciEkipSil(id) {
 }
 
 // ---------- SÜPER ADMİN PANELİ ----------
-function adminPaneliAc() {
+function adminPaneliAc(sekme = 'personel') {
+  document.getElementById('adminModal')?.remove();
   const html = `<div class="modal aktif" id="adminModal" style="align-items:flex-start;padding-top:20px"><div class="modal-content" style="max-width:860px">
     <div class="modal-baslik">
       <h3>🛠️ Yönetim Paneli</h3>
@@ -725,7 +726,7 @@ function adminPaneliAc() {
     <div id="adminIcerik"></div>
   </div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
-  adminTab('personel');
+  adminTab(sekme);
 }
 
 async function adminTab(tab) {
