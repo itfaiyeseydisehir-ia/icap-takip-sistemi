@@ -186,7 +186,6 @@ async function panelYukle() {
   const { data: icapGecmis } = await sb.from('icap_gorevleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('baslama_zamani', { ascending: false });
   const { data: izinGecmis } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('izin_tarihi', { ascending: false });
 
-  // ✅ KADRO/STATÜ ÇARPANI
   const carpan = mevcutPersonel.kadro === 'memur' ? 1 : 1.5;
   const toplamHam = icapGecmis ? icapGecmis.reduce((s, x) => s + (x.toplam_dakika || 0), 0) : 0;
   const toplamHak = Math.floor(toplamHam * carpan); 
@@ -368,22 +367,53 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     } else { bHtml = '<div class="bos">Onay bekleyen icap yok.</div>'; }
     html += `<div class="kart" id="onayIcapKart">${baslikHtml('⏳', 'Onay Bekleyen İcaplar', bekleyenler && bekleyenler.length ? `<span class="rozet r-turuncu">${bekleyenler.length}</span>` : '')}${bHtml}</div>`;
 
+    // ✅ İZİN ONAY EKRANI GÜNCELLEMESİ: Kişinin birikim dökümü eklendi
     let izinQuery = sb.from('icap_izin_talepleri').select('*, personel:personel_id(ad_soyad, vardiya, rol, kadro)').eq('durum', 'onay_bekliyor');
     if (rol === 'vardiya_cavusu') izinQuery = izinQuery.eq('personel.vardiya', mevcutPersonel.vardiya).eq('eksi_bakiye_mi', false);
     if (rol === 'grup_amiri' || rol === 'super_admin') izinQuery = izinQuery.or(`eksi_bakiye_mi.eq.true,personel.rol.in.(gunduz_85,gunduz_816)`);
+    
     const { data: izinler } = await izinQuery;
     let iHtml = '';
+    
     if (izinler && izinler.length > 0) {
       bekleyenSayi += izinler.length;
-      izinler.forEach(b => {
+      
+      for (const b of izinler) {
         const kadroRozet = b.personel.kadro === 'memur' ? '<span class="rozet r-mavi">Memur (1x)</span>' : '<span class="rozet r-turuncu">İşçi (1.5x)</span>';
+        const carpan = b.personel.kadro === 'memur' ? 1 : 1.5;
+        
+        // Amir için personelin anlık birikim dökümünü hesapla
+        const { data: pIcaps } = await sb.from('icap_gorevleri').select('toplam_dakika').eq('personel_id', b.personel_id).eq('durum', 'onaylandi');
+        const { data: pIzins } = await sb.from('icap_izin_talepleri').select('talep_edilen_dakika').eq('personel_id', b.personel_id).eq('durum', 'onaylandi');
+        
+        const pToplamHam = (pIcaps || []).reduce((s, x) => s + (x.toplam_dakika || 0), 0);
+        const pToplamHak = Math.floor(pToplamHam * carpan);
+        const pIlaveDk = pToplamHak - pToplamHam;
+        const pKullanilan = (pIzins || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0);
+        const pKalan = pToplamHak - pKullanilan;
+
         iHtml += `<div class="onay-item" style="border-left-color:var(--violet)">
-          <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">Tarih: ${esc(b.izin_tarihi)} ${kadroRozet} ${b.eksi_bakiye_mi ? '<span class="rozet r-kirmizi">Eksi Bakiye</span>' : ''}</div></div><span class="rozet r-mor">${sureYaz(b.talep_edilen_dakika)}</span></div>
-          <div class="onay-btnler"><button type="button" class="btn btn-success" onclick="onayla('${b.id}', 'izin')">✓ Onayla</button><button type="button" class="btn btn-danger" onclick="reddet('${b.id}', 'izin')">✕ Reddet</button></div></div>`;
-      });
+          <div class="onay-ust">
+            <div>
+              <div class="hucre-isim">${esc(b.personel.ad_soyad)}</div>
+              <div class="hucre-alt">Tarih: ${esc(b.izin_tarihi)} ${kadroRozet} ${b.eksi_bakiye_mi ? '<span class="rozet r-kirmizi">Eksi Bakiye</span>' : ''}</div>
+            </div>
+            <span class="rozet r-mor">Talep: ${sureYaz(b.talep_edilen_dakika)}</span>
+          </div>
+          
+          <!-- Birikim Dökümü -->
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px; margin-top:8px; font-size:11.5px; display:flex; flex-direction:column; gap:4px;">
+            <div style="display:flex; justify-content:space-between;"><span>Esas İcap:</span> <b>${sureYaz(pToplamHam)}</b></div>
+            ${carpan > 1 ? `<div style="display:flex; justify-content:space-between; color:var(--amber);"><span>1.5x İlavesi:</span> <b>+${sureYaz(pIlaveDk)}</b></div>` : ''}
+            <div style="display:flex; justify-content:space-between; border-top:1px dashed #cbd5e1; padding-top:4px; margin-top:2px; font-weight:700; color:var(--blue);"><span>Toplam Birikim:</span> <b>${sureYaz(pToplamHak)}</b></div>
+            <div style="display:flex; justify-content:space-between; font-weight:700; color:${pKalan < 0 ? 'var(--red)' : 'var(--green)'};"><span>Kalan Bakiye:</span> <b>${sureYaz(pKalan)}</b></div>
+          </div>
+
+          <div class="onay-btnler"><button type="button" class="btn btn-success" onclick="onayla('${b.id}', 'izin')">✓ Onayla</button><button type="button" class="btn btn-danger" onclick="reddet('${b.id}', 'izin')">✕ Reddet</button></div>
+        </div>`;
+      }
     } else { iHtml = '<div class="bos">Onay bekleyen izin talebi yok.</div>'; }
     html += `<div class="kart" id="onayIzinKart">${baslikHtml('📅', 'Onay Bekleyen İzinler', izinler && izinler.length ? `<span class="rozet r-mor">${izinler.length}</span>` : '')}${iHtml}</div>`;
-
   }
 
   el.innerHTML = html;
