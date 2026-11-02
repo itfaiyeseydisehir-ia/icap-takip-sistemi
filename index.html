@@ -216,11 +216,18 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 .icap-baslik{font-size:16px;font-weight:800;letter-spacing:-.2px}
 .icap-alt{font-size:12px;color:#9fb0c3;margin-top:2px;line-height:1.4}
 .hizli-sec{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
-.hizli-btn{background:#ffffff;color:#18202b;border:1px solid #e3e8ee;border-radius:12px;padding:12px 4px;font-size:12.5px;font-weight:700;line-height:1.25;transition:.12s;min-height:64px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; box-shadow:0 1px 3px rgba(0,0,0,0.05);}
-.hizli-btn:active{transform:scale(.96);}
-.hizli-btn.secili{background:#9a0c23;color:#ffffff;border-color:#9a0c23;box-shadow:0 4px 12px rgba(154,12,35,.4);}
-.hizli-btn.secili img { filter: none; }
-.hizli-btn:disabled{opacity:.5;}
+.hizli-btn{position:relative;background:rgba(255,255,255,.06);color:#e6edf5;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:12px 4px;font-size:12px;font-weight:700;line-height:1.25;transition:.15s;min-height:104px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px}
+.hizli-btn img{width:44px;height:44px;object-fit:contain;background:#fff;border-radius:12px;padding:5px;box-shadow:0 4px 10px rgba(0,0,0,.25)}
+.hizli-btn:hover{background:rgba(255,255,255,.1)}
+.hizli-btn:active{transform:scale(.96)}
+.hizli-btn.secili{background:linear-gradient(135deg,#e11d48,#9a0c23);color:#fff;border-color:#ff7a8a;box-shadow:0 8px 20px rgba(200,16,46,.45)}
+.hizli-btn.secili::after{content:"✓";position:absolute;top:6px;right:9px;font-size:12px;font-weight:900}
+.hizli-btn:disabled{opacity:.4;cursor:not-allowed}
+.icap-ust-metin{flex:1;min-width:0}
+.durum-pil{font-size:10px;font-weight:800;letter-spacing:.8px;padding:5px 10px;border-radius:999px;flex-shrink:0}
+.durum-pil.hazir{background:rgba(46,229,157,.14);color:#2ee59d;border:1px solid rgba(46,229,157,.4)}
+.durum-pil.kilit{background:rgba(255,255,255,.08);color:#9fb0c3;border:1px solid rgba(255,255,255,.16)}
+.adim-etiket{font-size:10.5px;font-weight:800;letter-spacing:.9px;color:#7f92a8;margin:2px 2px 8px}
 .icap-kart textarea{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);color:#fff;min-height:56px;margin-bottom:12px;border-radius:12px;font-size:14px}
 .icap-kart textarea::placeholder{color:#7f92a8}
 .icap-kart textarea:focus{border-color:#ff5a4d;box-shadow:0 0 0 3px rgba(255,90,77,.2)}
@@ -276,6 +283,49 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 .aktif-alt .rozet{font-size:10.5px;padding:2px 8px}
 .aktif-saat{font-size:11px;color:var(--text-3);font-weight:600}
 .aktif-sure{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;padding:6px 10px;flex-shrink:0}
+
+/* ---------- NÖBETÇİ EKİP ŞERİDİ ---------- */
+#icapGorevKart{display:flex;flex-direction:column;gap:16px}
+.nobet-seridi{display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,#fff,#f4f7fb);border:1px solid var(--line);border-radius:18px;padding:14px 16px 14px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.nobet-seridi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(180deg,#3b82f6,#1d4ed8)}
+.nobet-sol{display:flex;align-items:center;gap:12px;min-width:0}
+.nobet-ikon,.panel-ikon{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 14px rgba(37,99,235,.32);flex-shrink:0}
+.nobet-ikon svg,.panel-ikon svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.nobet-etiket{font-size:10.5px;font-weight:800;letter-spacing:.8px;color:var(--text-3)}
+.nobet-deger{font-size:21px;font-weight:800;letter-spacing:-.4px;line-height:1.15}
+.nobet-tarih{font-size:11px;color:var(--text-2);font-weight:600;margin-top:1px}
+.nobet-chips{display:flex;gap:6px;flex-shrink:0}
+.nobet-chip{position:relative;width:34px;height:34px;border-radius:10px;background:#eef1f5;color:var(--text-3);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line)}
+.nobet-chip.aktif{background:linear-gradient(135deg,var(--navy-3),var(--navy));color:#fff;border-color:transparent;box-shadow:0 6px 14px rgba(15,24,35,.35)}
+.nobet-chip.aktif::after{content:"";position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#2ee59d;border:2px solid #fff;animation:nabiz 1.8s infinite}
+
+/* ---------- İCAP GÖREVLİ PERSONEL PANELİ ---------- */
+.ekip-panel{padding:16px}
+.panel-ust{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.panel-ust-metin{flex:1;min-width:0}
+.panel-baslik{font-size:15px;font-weight:800;letter-spacing:-.2px}
+.panel-alt{font-size:11.5px;color:var(--text-2);margin-top:2px}
+.ekip-kart{--vc:#3b82f6;display:flex;align-items:stretch;gap:12px;background:#f6f8fb;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;position:relative;overflow:hidden}
+.ekip-kart::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--vc)}
+.ekip-kart.v1{--vc:#3b82f6}.ekip-kart.v2{--vc:#8b5cf6}.ekip-kart.v3{--vc:#14b8a6}
+.ekip-rozet{width:48px;border-radius:12px;background:var(--vc);color:#fff;font-size:22px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;flex-shrink:0;margin-left:4px;box-shadow:0 6px 12px rgba(15,24,35,.15)}
+.ekip-rozet small{font-size:7.5px;font-weight:800;letter-spacing:.5px;margin-top:4px;opacity:.92}
+.ekip-uyeler{flex:1;min-width:0;display:flex;flex-direction:column;gap:9px;justify-content:center}
+.ekip-uye{display:flex;align-items:center;gap:9px;min-width:0}
+.ekip-uye>div{min-width:0}
+.ekip-uye-ikon{width:28px;height:28px;border-radius:8px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ekip-uye-ikon svg{width:16px;height:16px;stroke:var(--vc);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ekip-uye-rol{font-size:9.5px;font-weight:800;letter-spacing:.8px;color:var(--text-3);line-height:1}
+.ekip-uye-ad{font-size:13.5px;font-weight:700;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ekip-islem{display:flex;flex-direction:column;gap:6px;justify-content:center}
+.ikon-btn{width:34px;height:34px;border-radius:10px;background:#fff;border:1px solid #d5dce5;display:flex;align-items:center;justify-content:center;padding:0}
+.ikon-btn svg{width:16px;height:16px;stroke:var(--text);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ikon-btn.sil{background:#fdeceb;border-color:#f4c7cc}
+.ikon-btn.sil svg{stroke:var(--red)}
+.ekip-bos{text-align:center;border:1.5px dashed #d5dce5;border-radius:14px;padding:18px 12px;color:var(--text-2);font-size:12.5px;margin-bottom:10px;line-height:1.5}
+.ekip-degistir{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;font-size:13.5px;font-weight:700;box-shadow:0 8px 18px rgba(37,99,235,.3)}
+.ekip-degistir:active{transform:scale(.98)}
+.ekip-degistir svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 /* ---------- AÇILIR PANEL PENCERESİ ---------- */
 .panel-govde .kart{box-shadow:none;border:none;padding:0;background:transparent}
@@ -384,11 +434,16 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
         </div>
 
         <!-- NÖBETÇİ EKİP -->
-        <div class="kpi genis" style="--c:var(--blue); margin-bottom: 4px; padding: 12px 16px;">
-          <div>
-            <div class="kpi-etiket" style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">NÖBETÇİ EKİP</div>
+        <div class="nobet-seridi">
+          <div class="nobet-sol">
+            <div class="nobet-ikon"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></div>
+            <div>
+              <div class="nobet-etiket">NÖBETÇİ EKİP</div>
+              <div class="nobet-deger" id="kpiVardiya">–</div>
+              <div class="nobet-tarih" id="nobetTarih"></div>
+            </div>
           </div>
-          <div class="kpi-deger" id="kpiVardiya" style="font-size: 20px;">–</div>
+          <div class="nobet-chips" id="nobetChips"></div>
         </div>
 
         <div id="icapGorevKart"></div>
