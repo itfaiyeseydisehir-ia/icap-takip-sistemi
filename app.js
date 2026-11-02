@@ -148,6 +148,11 @@ async function panelYukle() {
   // Aktif icap panosu yalnızca en az bir kişi icaptayken görünür
   const aktifPano = document.getElementById('aktifIcapPano');
   if (aktifPano) aktifPano.style.display = (aktifler && aktifler.length > 0) ? 'flex' : 'none';
+  // Nöbet değişmiş olabilir (otomasyon / manuel); güncel ayarı her yenilemede çek
+  try {
+    const { data: ayarTaze } = await sb.from('sistem_ayarlari').select('*').eq('id', 1).single();
+    if (ayarTaze) sistemAyar = ayarTaze;
+  } catch (e) {}
   document.getElementById('kpiVardiya').innerText = (sistemAyar.aktif_vardiya || '–') + '. Vardiya';
 
   let aHtml = '';
@@ -155,18 +160,29 @@ async function panelYukle() {
     let rows = '';
     aktifler.forEach(a => {
       const dk = Math.floor((new Date() - new Date(a.baslama_zamani)) / 60000);
-      rows += `<tr>
-        <td><div class="hucre-isim">${esc(a.personel.ad_soyad)}</div>${a.gorev_aciklamasi ? `<div class="hucre-alt">${esc(a.gorev_aciklamasi)}</div>` : ''}</td>
-        <td>${rolRozet(a.personel.rol)}</td>
-        <td>${saatYaz(a.baslama_zamani)}</td>
-        <td class="sag"><span class="rozet r-yesil" style="font-variant-numeric:tabular-nums" data-baslama="${esc(a.baslama_zamani)}">${sureYaz(dk)}</span></td>
-      </tr>`;
+      const bas = a.personel.ad_soyad.split(' ').filter(Boolean).map(x => x[0]).slice(0, 2).join('').toUpperCase();
+      rows += `<div class="aktif-satir">
+        <div class="aktif-avatar">${esc(bas)}</div>
+        <div class="aktif-bilgi">
+          <div class="aktif-isim">${esc(a.personel.ad_soyad)}</div>
+          ${a.gorev_aciklamasi ? `<div class="aktif-gorev-metin">${esc(a.gorev_aciklamasi)}</div>` : ''}
+          <div class="aktif-alt">${rolRozet(a.personel.rol)}<span class="aktif-saat">Başlama ${saatYaz(a.baslama_zamani)}</span></div>
+        </div>
+        <span class="rozet r-yesil aktif-sure" data-baslama="${esc(a.baslama_zamani)}">${sureYaz(dk)}</span>
+      </div>`;
     });
-    aHtml = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Personel</th><th>Görev</th><th>Başlama</th><th class="sag">Süre</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    aHtml = `<div class="aktif-liste">${rows}</div>`;
   } else { aHtml = '<div class="bos">Şu an icapta personel yok.</div>'; }
   document.getElementById('aktifIcapListe').innerHTML = aHtml;
 
-  const { data: hazirlar } = await sb.from('hazir_icapcilar').select('*, er:er_personel_id(ad_soyad), sofor:sofor_personel_id(ad_soyad)').eq('durum', 'aktif').gte('bitis_zamani', new Date().toISOString());
+  const { data: hazirHam } = await sb.from('hazir_icapcilar').select('*, er:er_personel_id(ad_soyad), sofor:sofor_personel_id(ad_soyad)').eq('durum', 'aktif').gte('bitis_zamani', new Date().toISOString());
+
+  // Nöbetçi vardiya icapçı olamaz: nöbete giren vardiyanın icap ekibi listeden düşer
+  const hazirlar = (hazirHam || []).filter(h => h.vardiya !== sistemAyar.aktif_vardiya);
+  const bayatlar = (hazirHam || []).filter(h => h.vardiya === sistemAyar.aktif_vardiya);
+  if (bayatlar.length > 0 && ['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(mevcutPersonel.rol)) {
+    sb.from('hazir_icapcilar').update({ durum: 'iptal' }).in('id', bayatlar.map(b => b.id)).then(() => {});
+  }
 
   const { data: icapGecmis } = await sb.from('icap_gorevleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('baslama_zamani', { ascending: false });
   const { data: izinGecmis } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('izin_tarihi', { ascending: false });
@@ -834,6 +850,8 @@ async function ayarKaydet() {
   if (error) toast("Hata: " + error.message);
   else {
     sistemAyar.aktif_vardiya = yeniVardiya;
+    await sb.from('hazir_icapcilar').update({ durum: 'iptal' }).eq('vardiya', yeniVardiya).eq('durum', 'aktif');
+    panelYukle();
     document.getElementById('kpiVardiya').innerText = yeniVardiya + '. Vardiya';
     toast("Sistem ayarları güncellendi.", "basari");
     await logEkle("Vardiya Değiştirdi", `Yeni: ${yeniVardiya}. Vardiya`);
