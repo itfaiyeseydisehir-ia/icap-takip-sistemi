@@ -145,10 +145,9 @@ async function panelYukle() {
 
   const { data: aktifler } = await sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol)').eq('durum', 'aktif').order('baslama_zamani', { ascending: true });
   document.getElementById('aktifIcapSayisi').innerText = aktifler ? aktifler.length : 0;
-  // Aktif icap panosu yalnızca en az bir kişi icaptayken görünür
   const aktifPano = document.getElementById('aktifIcapPano');
   if (aktifPano) aktifPano.style.display = (aktifler && aktifler.length > 0) ? 'flex' : 'none';
-  // Nöbet değişmiş olabilir (otomasyon / manuel); güncel ayarı her yenilemede çek
+  
   try {
     const { data: ayarTaze } = await sb.from('sistem_ayarlari').select('*').eq('id', 1).single();
     if (ayarTaze) sistemAyar = ayarTaze;
@@ -178,7 +177,6 @@ async function panelYukle() {
 
   const { data: hazirHam } = await sb.from('hazir_icapcilar').select('*, er:er_personel_id(ad_soyad), sofor:sofor_personel_id(ad_soyad)').eq('durum', 'aktif').gte('bitis_zamani', new Date().toISOString());
 
-  // Nöbetçi vardiya icapçı olamaz: nöbete giren vardiyanın icap ekibi listeden düşer
   const hazirlar = (hazirHam || []).filter(h => h.vardiya !== sistemAyar.aktif_vardiya);
   const bayatlar = (hazirHam || []).filter(h => h.vardiya === sistemAyar.aktif_vardiya);
   if (bayatlar.length > 0 && ['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(mevcutPersonel.rol)) {
@@ -188,10 +186,11 @@ async function panelYukle() {
   const { data: icapGecmis } = await sb.from('icap_gorevleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('baslama_zamani', { ascending: false });
   const { data: izinGecmis } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('izin_tarihi', { ascending: false });
 
-  // ✅ KADRO/STATÜ ÇARPANI (Memur 1x, İşçi 1.5x)
+  // ✅ KADRO/STATÜ ÇARPANI
   const carpan = mevcutPersonel.kadro === 'memur' ? 1 : 1.5;
   const toplamHam = icapGecmis ? icapGecmis.reduce((s, x) => s + (x.toplam_dakika || 0), 0) : 0;
-  const toplamHak = Math.floor(toplamHam * carpan); // Biriken hak
+  const toplamHak = Math.floor(toplamHam * carpan); 
+  const ilaveDk = toplamHak - toplamHam;
   const kullanilan = izinGecmis ? izinGecmis.reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0) : 0;
   const kalan = toplamHak - kullanilan;
 
@@ -205,12 +204,19 @@ async function panelYukle() {
     let rows = '';
     tumGecmis.forEach(x => {
       if (x.tip === 'icap') {
-        // ✅ Geçmiş listesinde de çarpanlı süre gösteriliyor
-        const kazanilanDk = Math.floor((x.data.toplam_dakika || 0) * carpan);
+        const hamDk = x.data.toplam_dakika || 0;
+        const xIlave = Math.floor(hamDk * (carpan - 1));
+        const xToplam = hamDk + xIlave;
+        
+        let sureHtml = `<div class="artı">+${sureYaz(xToplam)}</div>`;
+        if (carpan > 1) {
+          sureHtml += `<div style="font-size:10px; color:var(--text-3); text-align:right; margin-top:2px;">Ham: ${sureYaz(hamDk)}<br>İlave: +${sureYaz(xIlave)}</div>`;
+        }
+
         rows += `<tr>
           <td><span class="rozet r-yesil">İcap</span></td>
           <td><div class="hucre-isim">${tarihYaz(x.data.baslama_zamani)}</div><div class="hucre-alt">${saatYaz(x.data.baslama_zamani)} - ${saatYaz(x.data.bitis_zamani)}${x.data.gorev_aciklamasi ? ' · ' + esc(x.data.gorev_aciklamasi) : ''}</div></td>
-          <td class="sag artı">+${sureYaz(kazanilanDk)}</td></tr>`;
+          <td class="sag">${sureHtml}</td></tr>`;
       } else {
         rows += `<tr>
           <td><span class="rozet r-mor">İzin</span></td>
@@ -224,8 +230,10 @@ async function panelYukle() {
   document.getElementById('kisiselBakiyeKart').innerHTML = `
     <div class="kart">
       ${baslikHtml('💼', 'İcap / İzin Bakiyem')}
-      <div class="bakiye-grid">
-        <div class="bakiye-item"><div class="bakiye-etiket">Biriken (${carpan}x)</div><div class="bakiye-deger">${sureYaz(toplamHak)}</div></div>
+      <div class="bakiye-grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="bakiye-item"><div class="bakiye-etiket">Ham İcap</div><div class="bakiye-deger">${sureYaz(toplamHam)}</div></div>
+        <div class="bakiye-item"><div class="bakiye-etiket">${carpan > 1 ? 'İlave (1.5x)' : 'Ek Hak (1x)'}</div><div class="bakiye-deger" style="color:var(--amber)">${carpan > 1 ? '+' + sureYaz(ilaveDk) : 'Yok'}</div></div>
+        <div class="bakiye-item" style="grid-column: span 2; background:#e8f0fa; border-color:#cfe0f3;"><div class="bakiye-etiket">Toplam Biriken Hak</div><div class="bakiye-deger" style="color:var(--blue); font-size:18px;">${sureYaz(toplamHak)}</div></div>
         <div class="bakiye-item"><div class="bakiye-etiket">Kullanılan</div><div class="bakiye-deger">${sureYaz(kullanilan)}</div></div>
         <div class="bakiye-item"><div class="bakiye-etiket">Kalan</div><div class="bakiye-deger" style="color:${kalan < 0 ? '#c8102e' : '#12805c'}">${kalan < 0 ? '-' : ''}${sureYaz(kalan)}</div></div>
       </div>
@@ -282,7 +290,6 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       if (mevcutPersonel.vardiya === sistemAyar.aktif_vardiya) { baslatabilir = false; uyari = "Şu an nöbetçi vardiyadasınız. Asli görevinizdesiniz."; }
     }
     
-    // ✅ GÜNCELLENMİŞ İKONLU BUTON YAPISI VE FALLBACK (RESİM YÜKLENEMEZSE EMOJİ)
     const hizliGorevler = [
       { metin: 'Yangın', resim: IKN_YANGIN, emoji: '🔥' },
       { metin: 'Arama Kurtarma', resim: IKN_KURTARMA, emoji: '🆘' },
@@ -361,7 +368,8 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     } else { bHtml = '<div class="bos">Onay bekleyen icap yok.</div>'; }
     html += `<div class="kart" id="onayIcapKart">${baslikHtml('⏳', 'Onay Bekleyen İcaplar', bekleyenler && bekleyenler.length ? `<span class="rozet r-turuncu">${bekleyenler.length}</span>` : '')}${bHtml}</div>`;
 
-    let izinQuery = sb.from('icap_izin_talepleri').select('*, personel:personel_id(ad_soyad, vardiya, rol)').eq('durum', 'onay_bekliyor');
+    // ✅ İzin onay sorgusuna "kadro" alanı eklendi
+    let izinQuery = sb.from('icap_izin_talepleri').select('*, personel:personel_id(ad_soyad, vardiya, rol, kadro)').eq('durum', 'onay_bekliyor');
     if (rol === 'vardiya_cavusu') izinQuery = izinQuery.eq('personel.vardiya', mevcutPersonel.vardiya).eq('eksi_bakiye_mi', false);
     if (rol === 'grup_amiri' || rol === 'super_admin') izinQuery = izinQuery.or(`eksi_bakiye_mi.eq.true,personel.rol.in.(gunduz_85,gunduz_816)`);
     const { data: izinler } = await izinQuery;
@@ -369,8 +377,10 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     if (izinler && izinler.length > 0) {
       bekleyenSayi += izinler.length;
       izinler.forEach(b => {
+        // ✅ Onay ekranında personelin kadrosuna göre 1x veya 1.5x rozeti eklendi
+        const kadroRozet = b.personel.kadro === 'memur' ? '<span class="rozet r-mavi">Memur (1x)</span>' : '<span class="rozet r-turuncu">İşçi (1.5x)</span>';
         iHtml += `<div class="onay-item" style="border-left-color:var(--violet)">
-          <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">Tarih: ${esc(b.izin_tarihi)} ${b.eksi_bakiye_mi ? '<span class="rozet r-kirmizi">Eksi Bakiye</span>' : ''}</div></div><span class="rozet r-mor">${sureYaz(b.talep_edilen_dakika)}</span></div>
+          <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">Tarih: ${esc(b.izin_tarihi)} ${kadroRozet} ${b.eksi_bakiye_mi ? '<span class="rozet r-kirmizi">Eksi Bakiye</span>' : ''}</div></div><span class="rozet r-mor">${sureYaz(b.talep_edilen_dakika)}</span></div>
           <div class="onay-btnler"><button type="button" class="btn btn-success" onclick="onayla('${b.id}', 'izin')">✓ Onayla</button><button type="button" class="btn btn-danger" onclick="reddet('${b.id}', 'izin')">✕ Reddet</button></div></div>`;
       });
     } else { iHtml = '<div class="bos">Onay bekleyen izin talebi yok.</div>'; }
@@ -552,9 +562,36 @@ async function reddet(id, tip) {
 }
 
 // ---------- MODALLAR ----------
-function izinModalAc() {
+async function izinModalAc() {
+  const { data: icaps } = await sb.from('icap_gorevleri').select('toplam_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
+  const { data: izins } = await sb.from('icap_izin_talepleri').select('talep_edilen_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
+  
+  const carpan = mevcutPersonel.kadro === 'memur' ? 1 : 1.5;
+  const toplamHam = (icaps || []).reduce((s, x) => s + (x.toplam_dakika || 0), 0);
+  const toplamHak = Math.floor(toplamHam * carpan);
+  const ilaveDk = toplamHak - toplamHam;
+  const kullanilan = (izins || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0);
+  const kalan = toplamHak - kullanilan;
+
   const html = `<div class="modal aktif" id="izinModal"><div class="modal-content">
     <h3 style="color:var(--violet)">📅 İzin Talebi</h3>
+    
+    <div style="background:#f6f8fb; padding:12px; border-radius:10px; margin-bottom:16px; border:1px solid var(--line);">
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;">
+        <span>Ham İcap:</span> <b>${sureYaz(toplamHam)}</b>
+      </div>
+      ${carpan > 1 ? `
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px; color:var(--amber);">
+        <span>İşçi İlavesi (1.5x):</span> <b>+${sureYaz(ilaveDk)}</b>
+      </div>` : ''}
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px; color:var(--blue); border-top:1px dashed #ccc; padding-top:6px; font-weight:bold;">
+        <span>Toplam Biriken:</span> <b>${sureYaz(toplamHak)}</b>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--green); font-weight:bold;">
+        <span>Kalan Bakiye:</span> <b>${sureYaz(kalan)}</b>
+      </div>
+    </div>
+
     <div class="form-satir">
       <div class="form-grup"><label>Süre (Saat)</label><input type="number" id="izinSaat" min="0" value="1"></div>
       <div class="form-grup"><label>Dakika</label><input type="number" id="izinDakika" min="0" max="59" value="0"></div>
@@ -576,7 +613,6 @@ async function izinTalepEt() {
   const { data: icaps } = await sb.from('icap_gorevleri').select('toplam_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
   const { data: izins } = await sb.from('icap_izin_talepleri').select('talep_edilen_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
   
-  // ✅ KADRO ÇARPANI İLE BAKİYE HESABI
   const carpan = mevcutPersonel.kadro === 'memur' ? 1 : 1.5;
   const toplamHam = (icaps || []).reduce((s, x) => s + (x.toplam_dakika || 0), 0);
   const toplamHak = Math.floor(toplamHam * carpan);
