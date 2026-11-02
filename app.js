@@ -210,7 +210,7 @@ async function panelYukle() {
         
         let sureHtml = `<div class="artı">+${sureYaz(xToplam)}</div>`;
         if (carpan > 1) {
-          sureHtml += `<div style="font-size:10px; color:var(--text-3); text-align:right; margin-top:2px;">Ham: ${sureYaz(hamDk)}<br>İlave: +${sureYaz(xIlave)}</div>`;
+          sureHtml += `<div style="font-size:10px; color:var(--text-3); text-align:right; margin-top:2px;">Esas: ${sureYaz(hamDk)}<br>İlave: +${sureYaz(xIlave)}</div>`;
         }
 
         rows += `<tr>
@@ -231,8 +231,8 @@ async function panelYukle() {
     <div class="kart">
       ${baslikHtml('💼', 'İcap / İzin Bakiyem')}
       <div class="bakiye-grid" style="grid-template-columns: 1fr 1fr;">
-        <div class="bakiye-item"><div class="bakiye-etiket">Ham İcap</div><div class="bakiye-deger">${sureYaz(toplamHam)}</div></div>
-        <div class="bakiye-item"><div class="bakiye-etiket">${carpan > 1 ? 'İlave (1.5x)' : 'Ek Hak (1x)'}</div><div class="bakiye-deger" style="color:var(--amber)">${carpan > 1 ? '+' + sureYaz(ilaveDk) : 'Yok'}</div></div>
+        <div class="bakiye-item"><div class="bakiye-etiket">Esas İcap</div><div class="bakiye-deger">${sureYaz(toplamHam)}</div></div>
+        <div class="bakiye-item"><div class="bakiye-etiket">${carpan > 1 ? 'Katsayı İlavesi (1.5x)' : 'Katsayı İlavesi (1x)'}</div><div class="bakiye-deger" style="color:var(--amber)">${carpan > 1 ? '+' + sureYaz(ilaveDk) : 'Yok'}</div></div>
         <div class="bakiye-item" style="grid-column: span 2; background:#e8f0fa; border-color:#cfe0f3;"><div class="bakiye-etiket">Toplam Biriken Hak</div><div class="bakiye-deger" style="color:var(--blue); font-size:18px;">${sureYaz(toplamHak)}</div></div>
         <div class="bakiye-item"><div class="bakiye-etiket">Kullanılan</div><div class="bakiye-deger">${sureYaz(kullanilan)}</div></div>
         <div class="bakiye-item"><div class="bakiye-etiket">Kalan</div><div class="bakiye-deger" style="color:${kalan < 0 ? '#c8102e' : '#12805c'}">${kalan < 0 ? '-' : ''}${sureYaz(kalan)}</div></div>
@@ -368,7 +368,6 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     } else { bHtml = '<div class="bos">Onay bekleyen icap yok.</div>'; }
     html += `<div class="kart" id="onayIcapKart">${baslikHtml('⏳', 'Onay Bekleyen İcaplar', bekleyenler && bekleyenler.length ? `<span class="rozet r-turuncu">${bekleyenler.length}</span>` : '')}${bHtml}</div>`;
 
-    // ✅ İzin onay sorgusuna "kadro" alanı eklendi
     let izinQuery = sb.from('icap_izin_talepleri').select('*, personel:personel_id(ad_soyad, vardiya, rol, kadro)').eq('durum', 'onay_bekliyor');
     if (rol === 'vardiya_cavusu') izinQuery = izinQuery.eq('personel.vardiya', mevcutPersonel.vardiya).eq('eksi_bakiye_mi', false);
     if (rol === 'grup_amiri' || rol === 'super_admin') izinQuery = izinQuery.or(`eksi_bakiye_mi.eq.true,personel.rol.in.(gunduz_85,gunduz_816)`);
@@ -377,7 +376,6 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     if (izinler && izinler.length > 0) {
       bekleyenSayi += izinler.length;
       izinler.forEach(b => {
-        // ✅ Onay ekranında personelin kadrosuna göre 1x veya 1.5x rozeti eklendi
         const kadroRozet = b.personel.kadro === 'memur' ? '<span class="rozet r-mavi">Memur (1x)</span>' : '<span class="rozet r-turuncu">İşçi (1.5x)</span>';
         iHtml += `<div class="onay-item" style="border-left-color:var(--violet)">
           <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">Tarih: ${esc(b.izin_tarihi)} ${kadroRozet} ${b.eksi_bakiye_mi ? '<span class="rozet r-kirmizi">Eksi Bakiye</span>' : ''}</div></div><span class="rozet r-mor">${sureYaz(b.talep_edilen_dakika)}</span></div>
@@ -578,11 +576,11 @@ async function izinModalAc() {
     
     <div style="background:#f6f8fb; padding:12px; border-radius:10px; margin-bottom:16px; border:1px solid var(--line);">
       <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;">
-        <span>Ham İcap:</span> <b>${sureYaz(toplamHam)}</b>
+        <span>Esas İcap:</span> <b>${sureYaz(toplamHam)}</b>
       </div>
       ${carpan > 1 ? `
       <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px; color:var(--amber);">
-        <span>İşçi İlavesi (1.5x):</span> <b>+${sureYaz(ilaveDk)}</b>
+        <span>Katsayı İlavesi (1.5x):</span> <b>+${sureYaz(ilaveDk)}</b>
       </div>` : ''}
       <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px; color:var(--blue); border-top:1px dashed #ccc; padding-top:6px; font-weight:bold;">
         <span>Toplam Biriken:</span> <b>${sureYaz(toplamHak)}</b>
