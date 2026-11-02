@@ -105,9 +105,8 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 .avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#2d4157,#1b2a3a);border:1px solid #3a526b;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
 
 /* ---------- DÜZEN ---------- */
-.ana-icerik{padding:20px 16px 40px;max-width:1180px;margin:0 auto}
+.ana-icerik{padding:20px 16px 40px;max-width:760px;margin:0 auto}
 .dashboard{display:grid;grid-template-columns:1fr;gap:16px}
-@media(min-width:960px){.dashboard{grid-template-columns:1.2fr 1fr;align-items:start}}
 .col{display:flex;flex-direction:column;gap:16px;min-width:0}
 .kart{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow)}
 .kart-baslik{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px}
@@ -266,6 +265,24 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 .aktif-pano .kart{border-top-left-radius:0;border-top-right-radius:0;border-top:3px solid #17a673}
 @keyframes panoAc{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 
+/* ---------- AKTİF PERSONEL SATIRLARI (MOBİL UYUMLU) ---------- */
+.aktif-liste{display:flex;flex-direction:column;gap:10px}
+.aktif-satir{display:flex;align-items:center;gap:12px;background:#f6f8fb;border:1px solid var(--line);border-radius:14px;padding:12px}
+.aktif-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#17a673,#0e7a55);color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.aktif-bilgi{flex:1;min-width:0}
+.aktif-isim{font-weight:700;font-size:14px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aktif-gorev-metin{font-size:12px;color:var(--text-2);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aktif-alt{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+.aktif-alt .rozet{font-size:10.5px;padding:2px 8px}
+.aktif-saat{font-size:11px;color:var(--text-3);font-weight:600}
+.aktif-sure{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;padding:6px 10px;flex-shrink:0}
+
+/* ---------- AÇILIR PANEL PENCERESİ ---------- */
+.panel-govde .kart{box-shadow:none;border:none;padding:0;background:transparent}
+.panel-govde .kart-baslik{display:none}
+.panel-govde .scroll{max-height:none}
+.panel-govde .alt-not{margin-top:0}
+
 /* ---------- KURUMSAL İNCE AYARLAR ---------- */
 .kpi.genis{background:linear-gradient(135deg,#fff,#f4f7fb)}
 .kart{border-radius:18px}
@@ -379,19 +396,12 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
         <!-- HIZLI İŞLEMLER (rol bazlı butonlar) -->
         <div id="hizliIslemler"></div>
 
-        <div class="kpi-grid-2">
-          <div class="kpi" style="--c:var(--green)"><div class="kpi-etiket">Kalan Bakiyem</div><div class="kpi-deger" id="kpiBakiye">–</div><div class="kpi-alt">icap / izin</div></div>
-          <div class="kpi" style="--c:var(--amber)"><div class="kpi-etiket">Bekleyen Onay</div><div class="kpi-deger" id="kpiBekleyen">–</div><div class="kpi-alt">işlem</div></div>
+        <!-- PANEL DEPOSU: İçerikler burada hazırlanır, Hızlı İşlemler butonlarına basınca pencerede açılır -->
+        <div id="panelDeposu" style="display:none">
+          <div id="rolIcerik" class="col"></div>
+          <div id="kisiselBakiyeKart"></div>
+          <div id="logPenceresi" class="kart"></div>
         </div>
-
-        <div id="rolIcerik" class="col"></div>
-      </div>
-      <div class="col">
-        <div id="kisiselBakiyeKart"></div>
-        
-        <!-- HAZIR İCAPÇI EKİBİ KARTI BURADAN KALDIRILDI -->
-
-        <div id="logPenceresi" class="kart" style="display:none"></div>
       </div>
     </div>
   </div>
