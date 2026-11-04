@@ -49,13 +49,11 @@ function baslikHtml(simge, metin, sag = '') {
   return `<div class="kart-baslik"><div class="kart-baslik-simge">${simge}</div>${metin}${sag ? `<div class="sag">${sag}</div>` : ''}</div>`;
 }
 
-// ---------- YENİ İCAP HAK HESABI (SAAT x 1,6 / 7,5) x 8 ----------
-// Daire başkanlığı formülü: (Saat x 1.6) / 7.5 = Gün, ardından 1 Gün = 8 Saat olarak Saat'e çeviriyoruz.
+// ---------- YENİ İCAP HAK HESABI (TAM GÜN YUVARLAMALI) ----------
 const CARPAN = 1.6;
 const GUNLUK_SAAT = 7.5;
-const VARDIYA_SAAT = 8; // 24 saatlik nöbetin 1/3'ü
+const VARDIYA_SAAT = 8; // 1 tam nöbet dilimi (3 gün x 8 saat = 24 saat)
 
-// Saati sadece "Saat ve Dakika" formatına çeviren yardımcı fonksiyon
 function saatYazGun(saat) {
   if (isNaN(saat) || saat === 0) return '0 Saat';
   const isaret = saat < 0 ? '−' : '';
@@ -71,38 +69,41 @@ function saatYazGun(saat) {
   return res.trim() || '0 Saat';
 }
 
-// Tüm hesaplamaları saat cinsinden yapar
 function bakiyeHesapla(icaplar, izinler) {
   let esasSaat = 0;
   (icaplar || []).forEach(k => {
     esasSaat += (k.toplam_dakika || 0) / 60;
   });
   
-  // Daire başkanlığı formülü
-  const hakSaat = ((esasSaat * CARPAN) / GUNLUK_SAAT) * VARDIYA_SAAT;
+  // Evraktaki formül: (Saat x 1.6) / 7.5 = Gün
+  // Küsüratlı günler aşağı yuvarlanır (14 saat 10 dk -> 3.02 gün -> 3 gün kabul edilir)
+  const gunSayisi = Math.floor((esasSaat * CARPAN) / GUNLUK_SAAT);
+  const hakSaat = gunSayisi * VARDIYA_SAAT; // 3 gün x 8 saat = 24 Saat
   
   const kullanilanSaat = (izinler || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0) / 60, 0);
   const kalanSaat = hakSaat - kullanilanSaat;
   
-  return { esasSaat, hakSaat, kullanilanSaat, kalanSaat };
+  return { esasSaat, hakSaat, kullanilanSaat, kalanSaat, gunSayisi };
 }
 
-// Yeni Bakiye Döküm Ekranı
 function bakiyeDokumHtml(b, kompakt = false) {
   const eksi = b.kalanSaat < 0;
   const kalanTxt = saatYazGun(b.kalanSaat);
   
+  // Kalan bakiye 24 saatin katlarıysa yanına "X Gün" ibaresi ekleyelim ki dilekçedeki gibi görünsün
+  const kalanGunTxt = (b.kalanSaat > 0 && b.kalanSaat % 8 === 0) ? ` (${b.kalanSaat / 8} Gün)` : '';
+  
   const hero = kompakt ? '' : `<div class="bakiye-hero ${eksi ? 'eksi' : ''}">
       <div class="bakiye-hero-etiket">KALAN BAKİYE</div>
-      <div class="bakiye-hero-deger" style="font-size: clamp(24px, 7vw, 32px);">${kalanTxt}</div>
+      <div class="bakiye-hero-deger" style="font-size: clamp(24px, 7vw, 32px);">${kalanTxt}${kalanGunTxt}</div>
     </div>`;
 
   return `${hero}<div class="dokum">
       <div class="dokum-satir"><span>Esas İcap</span><b>${saatYazGun(b.esasSaat)}</b></div>
-      <div class="dokum-satir ilave"><span>Hak Edilen İzin (Formül)</span><b>${saatYazGun(b.hakSaat)}</b></div>
+      <div class="dokum-satir ilave"><span>Hak Edilen İzin</span><b>${b.gunSayisi} Gün (${saatYazGun(b.hakSaat)})</b></div>
       <div class="dokum-satir toplam"><span>Toplam Hak</span><b>${saatYazGun(b.hakSaat)}</b></div>
       <div class="dokum-satir"><span>Kullanılan İzin</span><b>−${saatYazGun(b.kullanilanSaat)}</b></div>
-      ${kompakt ? `<div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kalan Bakiye</span><b>${kalanTxt}</b></div>` : ''}
+      ${kompakt ? `<div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kalan Bakiye</span><b>${kalanTxt}${kalanGunTxt}</b></div>` : ''}
     </div>`;
 }
 
@@ -256,8 +257,13 @@ async function panelYukle() {
     tumGecmis.forEach(x => {
       if (x.tip === 'icap') {
         const hamSaat = (x.data.toplam_dakika || 0) / 60;
-        const hakSaat = ((hamSaat * CARPAN) / GUNLUK_SAAT) * VARDIYA_SAAT;
-        const sureHtml = `<div class="artı">+${saatYazGun(hakSaat)}</div><div class="sure-formul">${saatYazGun(hamSaat)} x 1,6 / 7,5 x 8</div>`;
+        const gunSayisi = Math.floor((hamSaat * CARPAN) / GUNLUK_SAAT);
+        const hakSaat = gunSayisi * VARDIYA_SAAT;
+        
+        let sureHtml = `<div class="artı">+${saatYazGun(hakSaat)}</div>`;
+        if (gunSayisi > 0) {
+          sureHtml += `<div class="sure-formul">${gunSayisi} Gün</div>`;
+        }
 
         rows += `<tr>
           <td><span class="rozet r-yesil">İcap</span></td>
@@ -402,10 +408,12 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       bekleyenSayi += bekleyenler.length;
       bekleyenler.forEach(b => {
         const hamSaat = (b.toplam_dakika || 0) / 60;
-        const hakSaat = ((hamSaat * CARPAN) / GUNLUK_SAAT) * VARDIYA_SAAT;
+        const gunSayisi = Math.floor((hamSaat * CARPAN) / GUNLUK_SAAT);
+        const hakSaat = gunSayisi * VARDIYA_SAAT;
+        
         bHtml += `<div class="onay-item">
           <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">${esc(rolAd(b.personel.rol))}</div></div>
-            <div style="text-align:right"><span class="rozet r-turuncu">${sureYaz(b.toplam_dakika)}</span><div class="sure-formul">Hak: ${saatYazGun(hakSaat)}</div></div></div>
+            <div style="text-align:right"><span class="rozet r-turuncu">${sureYaz(b.toplam_dakika)}</span><div class="sure-formul">Hak: ${gunSayisi} Gün (${saatYazGun(hakSaat)})</div></div></div>
           <div class="onay-btnler"><button type="button" class="btn btn-success" onclick="onayla('${b.id}', 'icap')">✓ Onayla</button><button type="button" class="btn btn-danger" onclick="reddet('${b.id}', 'icap')">✕ Reddet</button></div></div>`;
       });
     } else { bHtml = '<div class="bos">Onay bekleyen icap yok.</div>'; }
@@ -638,7 +646,7 @@ async function izinModalAc() {
     <div style="margin-bottom:16px">${bakiyeDokumHtml(bakiye, true)}</div>
     
     <div class="uyari" style="margin-bottom:12px; background:#e8f0fa; color:var(--blue); border-color:#cfe0f3;">
-      ℹ️ <span>Daire başkanlığı formülü: (Saat x 1,6 / 7,5) x 8</span>
+      ℹ️ <span>Kurum kuralı: 1 Gün İzin = 8 Saat (1 Nöbet Dilimi).</span>
     </div>
 
     <div class="form-satir">
@@ -995,16 +1003,17 @@ async function raporCsvIndir() {
   const { data: icaps } = await sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol)').eq('durum', 'onaylandi').gte('baslama_zamani', basISO).lte('baslama_zamani', bitISO).order('baslama_zamani', { ascending: true });
   if (!icaps || !icaps.length) return toast("Seçilen tarihlerde onaylanmış icap yok.");
 
-  let csv = "Personel,Rol,Gorev Aciklamasi,Baslangic,Bitis,Esas Sure(Saat),Hak Edilen (Saat)\n";
+  let csv = "Personel,Rol,Gorev Aciklamasi,Baslangic,Bitis,Esas Sure(Saat),Hak Edilen (Gun),Hak Edilen (Saat)\n";
   let topEsas = 0, topHak = 0;
   icaps.forEach(i => {
     const ham = (i.toplam_dakika || 0) / 60;
-    const hakSaat = ((ham * CARPAN) / GUNLUK_SAAT) * VARDIYA_SAAT;
+    const gunSayisi = Math.floor((ham * CARPAN) / GUNLUK_SAAT);
+    const hakSaat = gunSayisi * VARDIYA_SAAT;
     topEsas += ham; topHak += hakSaat;
     const aciklama = (i.gorev_aciklamasi || "").replace(/"/g, '""');
-    csv += `"${i.personel.ad_soyad}","${rolAd(i.personel.rol)}","${aciklama}","${new Date(i.baslama_zamani).toLocaleString('tr-TR')}","${new Date(i.bitis_zamani).toLocaleString('tr-TR')}",${ham.toFixed(2)},${hakSaat.toFixed(2)}\n`;
+    csv += `"${i.personel.ad_soyad}","${rolAd(i.personel.rol)}","${aciklama}","${new Date(i.baslama_zamani).toLocaleString('tr-TR')}","${new Date(i.bitis_zamani).toLocaleString('tr-TR')}",${ham.toFixed(2)},${gunSayisi},${hakSaat.toFixed(2)}\n`;
   });
-  csv += `"TOPLAM","","","","",${topEsas.toFixed(2)},${topHak.toFixed(2)}\n`;
+  csv += `"TOPLAM","","","","",${topEsas.toFixed(2)},"",${topHak.toFixed(2)}\n`;
   const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `icap_raporu_${bas}_${bit}.csv`; link.click();
   document.getElementById('raporModal')?.remove();
