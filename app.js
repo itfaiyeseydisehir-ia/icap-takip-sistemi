@@ -57,7 +57,6 @@ function kadroRozet(kadro) {
   return `<span class="rozet ${kadro === 'memur' ? 'r-mavi' : 'r-turuncu'}">${kadroAd(kadro)}</span>`;
 }
 
-// GÜNCELLENMİŞ FONKSİYON: Her zaman Saat ve Dakika gösterir
 function saatYazGun(saat) {
   if (isNaN(saat)) return '0 Saat 0 Dk';
   const isaret = saat < 0 ? '−' : '';
@@ -74,7 +73,6 @@ function saatYazGun(saat) {
   return res.trim() || '0 Dk';
 }
 
-// İzin talebi -> İcap düşüşü dönüştürücü (Ters Formül)
 function izinToIcap(izinSaat, kadro) {
   if (kadro === 'isci') {
     return (izinSaat / VARDIYA_SAAT) * GUNLUK_SAAT / ISCI_CARPAN;
@@ -82,7 +80,6 @@ function izinToIcap(izinSaat, kadro) {
   return izinSaat;
 }
 
-// İcap -> İzin karşılığı (Düz Formül)
 function icapToIzin(icapSaat, kadro) {
   if (kadro === 'isci') {
     return Math.floor((icapSaat * ISCI_CARPAN) / GUNLUK_SAAT) * VARDIYA_SAAT;
@@ -203,6 +200,7 @@ async function cikisYap() {
   if (realtimeKanal) await sb.removeChannel(realtimeKanal);
   await sb.auth.signOut();
   mevcutPersonel = null;
+  document.title = 'Seydişehir İtfaiyesi - İcap Takip'; // Başlığı sıfırla
   ekranDegistir('ekranGiris');
 }
 
@@ -613,12 +611,46 @@ function hizliAciklama(btn) {
   if (navigator.vibrate) navigator.vibrate(15);
 }
 
+// GÜNCELLENMİŞ SAYAÇ VE ARKA PLAN WIDGET MANTIĞI
 function sayacGuncelle() {
+  let aktifSayacVar = false;
+  let aktifSureStr = '';
+
   document.querySelectorAll('[data-baslama]').forEach(el => {
     const sn = Math.max(0, Math.floor((Date.now() - new Date(el.dataset.baslama).getTime()) / 1000));
     const p = n => String(n).padStart(2, '0');
-    el.innerText = `${p(Math.floor(sn / 3600))}:${p(Math.floor((sn % 3600) / 60))}:${p(sn % 60)}`;
+    const str = `${p(Math.floor(sn / 3600))}:${p(Math.floor((sn % 3600) / 60))}:${p(sn % 60)}`;
+    
+    // HTML içindeki sayacı güncelle
+    el.innerText = str;
+    aktifSayacVar = true;
+    aktifSureStr = str;
   });
+
+  // Eğer sayfa arka plandaysa veya sekme başlığındaysa sayacı göster
+  if (aktifSayacVar && aktifSureStr) {
+    document.title = `⏱️ ${aktifSureStr} | İcap Görevi`;
+    
+    // Media Session API ile telefonun kilit ekranı/ana ekran medya paneline ekle
+    if ('mediaSession' in navigator) {
+      if (!navigator.mediaSession.metadata) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: 'İcap Görevi Devam Ediyor',
+          artist: mevcutPersonel?.ad_soyad || 'İtfaiye Personeli',
+          album: 'Seydişehir İtfaiyesi',
+          artwork: [{ src: IKN_YANGIN, sizes: '96x96', type: 'image/png' }]
+        });
+      }
+      // Saniye saniye medya panelini güncellemeye çalış (Destekleyen cihazlarda çalışır)
+      navigator.mediaSession.metadata.title = `İcap Görevi: ${aktifSureStr}`;
+    }
+  } else {
+    // Eğer hiç icap yoksa başlığı ve medya panelini eski haline getir
+    if (document.title.includes('İcap Görevi')) {
+      document.title = 'Seydişehir İtfaiyesi - İcap Takip';
+      if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
+    }
+  }
 }
 setInterval(sayacGuncelle, 1000);
 
@@ -639,7 +671,14 @@ async function icapBitir(id) {
   
   let { error } = await sb.from('icap_gorevleri').update(guncelle).eq('id', id);
   if (error) toast("Hata: " + error.message);
-  else { toast("İcap bitirildi", "basari"); await logEkle("İcabı Bitirdi", `Süre: ${dk} dk`); panelYukle(); }
+  else { 
+    toast("İcap bitirildi", "basari"); 
+    await logEkle("İcabı Bitirdi", `Süre: ${dk} dk`); 
+    // Medya panelini kapat ve başlığı sıfırla
+    if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
+    document.title = 'Seydişehir İtfaiyesi - İcap Takip';
+    panelYukle(); 
+  }
 }
 
 async function onayla(id, tip) {
