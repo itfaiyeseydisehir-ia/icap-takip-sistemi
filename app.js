@@ -279,9 +279,14 @@ async function panelYukle() {
         const hamSaat = (x.data.toplam_dakika || 0) / 60;
         const hakSaat = icapToIzin(hamSaat, mevcutPersonel.kadro);
         
-        let sureHtml = `<div class="artı">+${saatYazGun(hakSaat)}</div>`;
-        if (mevcutPersonel.kadro === 'isci' && hakSaat > 0) {
-            sureHtml += `<div class="sure-formul" style="color:var(--green);">Karşılığı İzin</div>`;
+        // GÜNCELLEME: Süre kısmına önce gerçekleşen icap süresini yazdırıyoruz
+        let sureHtml = `<div style="font-weight:800; font-size:13px; color:var(--text);">${saatYazGun(hamSaat)}</div>`;
+        
+        // Altına kazanç varsa yeşil renkle göster, yoksa kazanım yok yaz.
+        if (hakSaat > 0) {
+            sureHtml += `<div class="sure-formul" style="color:var(--green);">+${saatYazGun(hakSaat)} Hak</div>`;
+        } else {
+            sureHtml += `<div class="sure-formul" style="color:var(--text-3);">Kazanım Yok</div>`;
         }
 
         rows += `<tr>
@@ -621,17 +626,14 @@ function sayacGuncelle() {
     const p = n => String(n).padStart(2, '0');
     const str = `${p(Math.floor(sn / 3600))}:${p(Math.floor((sn % 3600) / 60))}:${p(sn % 60)}`;
     
-    // HTML içindeki sayacı güncelle
     el.innerText = str;
     aktifSayacVar = true;
     aktifSureStr = str;
   });
 
-  // Eğer sayfa arka plandaysa veya sekme başlığındaysa sayacı göster
   if (aktifSayacVar && aktifSureStr) {
     document.title = `⏱️ ${aktifSureStr} | İcap Görevi`;
     
-    // Media Session API ile telefonun kilit ekranı/ana ekran medya paneline ekle
     if ('mediaSession' in navigator) {
       if (!navigator.mediaSession.metadata) {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -641,11 +643,9 @@ function sayacGuncelle() {
           artwork: [{ src: IKN_YANGIN, sizes: '96x96', type: 'image/png' }]
         });
       }
-      // Saniye saniye medya panelini güncellemeye çalış (Destekleyen cihazlarda çalışır)
       navigator.mediaSession.metadata.title = `İcap Görevi: ${aktifSureStr}`;
     }
   } else {
-    // Eğer hiç icap yoksa başlığı ve medya panelini eski haline getir
     if (document.title.includes('İcap Görevi')) {
       document.title = 'Seydişehir İtfaiyesi - İcap Takip';
       if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
@@ -674,7 +674,6 @@ async function icapBitir(id) {
   else { 
     toast("İcap bitirildi", "basari"); 
     await logEkle("İcabı Bitirdi", `Süre: ${dk} dk`); 
-    // Medya panelini kapat ve başlığı sıfırla
     if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
     document.title = 'Seydişehir İtfaiyesi - İcap Takip';
     panelYukle(); 
