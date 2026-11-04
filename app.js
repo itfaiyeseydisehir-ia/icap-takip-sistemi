@@ -49,10 +49,15 @@ function baslikHtml(simge, metin, sag = '') {
   return `<div class="kart-baslik"><div class="kart-baslik-simge">${simge}</div>${metin}${sag ? `<div class="sag">${sag}</div>` : ''}</div>`;
 }
 
-// ---------- YENİ İCAP HAK HESABI (TAM GÜN YUVARLAMALI) ----------
-const CARPAN = 1.6;
+// ---------- İCAP HAK HESABI (MEMUR 1x / İŞÇİ FORMÜLLÜ) ----------
+const ISCI_CARPAN = 1.6;
 const GUNLUK_SAAT = 7.5;
-const VARDIYA_SAAT = 8; // 1 tam nöbet dilimi (3 gün x 8 saat = 24 saat)
+const VARDIYA_SAAT = 8;
+
+function kadroAd(kadro) { return kadro === 'memur' ? 'Memur' : 'İşçi'; }
+function kadroRozet(kadro) {
+  return `<span class="rozet ${kadro === 'memur' ? 'r-mavi' : 'r-turuncu'}">${kadroAd(kadro)}</span>`;
+}
 
 function saatYazGun(saat) {
   if (isNaN(saat) || saat === 0) return '0 Saat';
@@ -69,16 +74,25 @@ function saatYazGun(saat) {
   return res.trim() || '0 Saat';
 }
 
-function bakiyeHesapla(icaplar, izinler) {
+function bakiyeHesapla(icaplar, izinler, kadro) {
   let esasSaat = 0;
+  let hakSaat = 0;
+  let gunSayisi = 0;
+
   (icaplar || []).forEach(k => {
-    esasSaat += (k.toplam_dakika || 0) / 60;
+    const ham = (k.toplam_dakika || 0) / 60;
+    esasSaat += ham;
+    
+    if (kadro === 'isci') {
+      // İşçi: (Saat x 1.6) / 7.5 = Gün -> Tam güne yuvarla -> 8 ile çarp
+      const g = Math.floor((ham * ISCI_CARPAN) / GUNLUK_SAAT);
+      hakSaat += g * VARDIYA_SAAT;
+      gunSayisi += g;
+    } else {
+      // Memur: Birebir (1x)
+      hakSaat += ham;
+    }
   });
-  
-  // Evraktaki formül: (Saat x 1.6) / 7.5 = Gün
-  // Küsüratlı günler aşağı yuvarlanır (14 saat 10 dk -> 3.02 gün -> 3 gün kabul edilir)
-  const gunSayisi = Math.floor((esasSaat * CARPAN) / GUNLUK_SAAT);
-  const hakSaat = gunSayisi * VARDIYA_SAAT; // 3 gün x 8 saat = 24 Saat
   
   const kullanilanSaat = (izinler || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0) / 60, 0);
   const kalanSaat = hakSaat - kullanilanSaat;
@@ -86,21 +100,22 @@ function bakiyeHesapla(icaplar, izinler) {
   return { esasSaat, hakSaat, kullanilanSaat, kalanSaat, gunSayisi };
 }
 
-function bakiyeDokumHtml(b, kompakt = false) {
+function bakiyeDokumHtml(b, kadro, kompakt = false) {
   const eksi = b.kalanSaat < 0;
   const kalanTxt = saatYazGun(b.kalanSaat);
   
-  // Kalan bakiye 24 saatin katlarıysa yanına "X Gün" ibaresi ekleyelim ki dilekçedeki gibi görünsün
-  const kalanGunTxt = (b.kalanSaat > 0 && b.kalanSaat % 8 === 0) ? ` (${b.kalanSaat / 8} Gün)` : '';
+  // Kalan bakiye 24 saatin katlarıysa yanına "X Gün" ibaresi ekleyelim (Sadece işçiler için mantıklı)
+  const kalanGunTxt = (kadro === 'isci' && b.kalanSaat > 0 && b.kalanSaat % 8 === 0) ? ` (${b.kalanSaat / 8} Gün)` : '';
   
   const hero = kompakt ? '' : `<div class="bakiye-hero ${eksi ? 'eksi' : ''}">
       <div class="bakiye-hero-etiket">KALAN BAKİYE</div>
       <div class="bakiye-hero-deger" style="font-size: clamp(24px, 7vw, 32px);">${kalanTxt}${kalanGunTxt}</div>
+      <div class="bakiye-hero-alt">${kadroRozet(kadro)}</div>
     </div>`;
 
   return `${hero}<div class="dokum">
       <div class="dokum-satir"><span>Esas İcap</span><b>${saatYazGun(b.esasSaat)}</b></div>
-      <div class="dokum-satir ilave"><span>Hak Edilen İzin</span><b>${b.gunSayisi} Gün (${saatYazGun(b.hakSaat)})</b></div>
+      <div class="dokum-satir ilave"><span>Hak Edilen İzin</span><b>${kadro === 'isci' ? b.gunSayisi + ' Gün ' : ''}(${saatYazGun(b.hakSaat)})</b></div>
       <div class="dokum-satir toplam"><span>Toplam Hak</span><b>${saatYazGun(b.hakSaat)}</b></div>
       <div class="dokum-satir"><span>Kullanılan İzin</span><b>−${saatYazGun(b.kullanilanSaat)}</b></div>
       ${kompakt ? `<div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kalan Bakiye</span><b>${kalanTxt}${kalanGunTxt}</b></div>` : ''}
@@ -244,7 +259,7 @@ async function panelYukle() {
   const { data: icapGecmis } = await sb.from('icap_gorevleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('baslama_zamani', { ascending: false });
   const { data: izinGecmis } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('izin_tarihi', { ascending: false });
 
-  const bakiye = bakiyeHesapla(icapGecmis, izinGecmis);
+  const bakiye = bakiyeHesapla(icapGecmis, izinGecmis, mevcutPersonel.kadro);
 
   const tumGecmis = [];
   if (icapGecmis) icapGecmis.forEach(g => tumGecmis.push({ tip: 'icap', tarih: g.baslama_zamani, data: g }));
@@ -257,13 +272,18 @@ async function panelYukle() {
     tumGecmis.forEach(x => {
       if (x.tip === 'icap') {
         const hamSaat = (x.data.toplam_dakika || 0) / 60;
-        const gunSayisi = Math.floor((hamSaat * CARPAN) / GUNLUK_SAAT);
-        const hakSaat = gunSayisi * VARDIYA_SAAT;
+        let hakSaat = 0;
+        let ekBilgi = '';
         
-        let sureHtml = `<div class="artı">+${saatYazGun(hakSaat)}</div>`;
-        if (gunSayisi > 0) {
-          sureHtml += `<div class="sure-formul">${gunSayisi} Gün</div>`;
+        if (mevcutPersonel.kadro === 'isci') {
+          const g = Math.floor((hamSaat * ISCI_CARPAN) / GUNLUK_SAAT);
+          hakSaat = g * VARDIYA_SAAT;
+          if (g > 0) ekBilgi = `<div class="sure-formul">${g} Gün</div>`;
+        } else {
+          hakSaat = hamSaat;
         }
+
+        const sureHtml = `<div class="artı">+${saatYazGun(hakSaat)}</div>${ekBilgi}`;
 
         rows += `<tr>
           <td><span class="rozet r-yesil">İcap</span></td>
@@ -282,7 +302,7 @@ async function panelYukle() {
   document.getElementById('kisiselBakiyeKart').innerHTML = `
     <div class="kart">
       ${baslikHtml('💼', 'İcap / İzin Bakiyem')}
-      ${bakiyeDokumHtml(bakiye)}
+      ${bakiyeDokumHtml(bakiye, mevcutPersonel.kadro)}
       ${gecmisHtml}
     </div>`;
 
@@ -400,7 +420,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   }
 
   if (['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol)) {
-    let query = sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol, vardiya)').eq('durum', 'onay_bekliyor');
+    let query = sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol, vardiya, kadro)').eq('durum', 'onay_bekliyor');
     if (rol === 'vardiya_cavusu') query = query.eq('vardiya', mevcutPersonel.vardiya);
     const { data: bekleyenler } = await query;
     let bHtml = '';
@@ -408,18 +428,27 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       bekleyenSayi += bekleyenler.length;
       bekleyenler.forEach(b => {
         const hamSaat = (b.toplam_dakika || 0) / 60;
-        const gunSayisi = Math.floor((hamSaat * CARPAN) / GUNLUK_SAAT);
-        const hakSaat = gunSayisi * VARDIYA_SAAT;
-        
+        let hakSaat = 0;
+        let ekBilgi = '';
+
+        if (b.personel.kadro === 'isci') {
+           const g = Math.floor((hamSaat * ISCI_CARPAN) / GUNLUK_SAAT);
+           hakSaat = g * VARDIYA_SAAT;
+           ekBilgi = `<div class="sure-formul">Hak: ${g} Gün (${saatYazGun(hakSaat)})</div>`;
+        } else {
+           hakSaat = hamSaat;
+           ekBilgi = `<div class="sure-formul">Hak: ${saatYazGun(hakSaat)}</div>`;
+        }
+
         bHtml += `<div class="onay-item">
-          <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">${esc(rolAd(b.personel.rol))}</div></div>
-            <div style="text-align:right"><span class="rozet r-turuncu">${sureYaz(b.toplam_dakika)}</span><div class="sure-formul">Hak: ${gunSayisi} Gün (${saatYazGun(hakSaat)})</div></div></div>
+          <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">${esc(rolAd(b.personel.rol))} ${kadroRozet(b.personel.kadro)}</div></div>
+            <div style="text-align:right"><span class="rozet r-turuncu">${sureYaz(b.toplam_dakika)}</span>${ekBilgi}</div></div>
           <div class="onay-btnler"><button type="button" class="btn btn-success" onclick="onayla('${b.id}', 'icap')">✓ Onayla</button><button type="button" class="btn btn-danger" onclick="reddet('${b.id}', 'icap')">✕ Reddet</button></div></div>`;
       });
     } else { bHtml = '<div class="bos">Onay bekleyen icap yok.</div>'; }
     html += `<div class="kart" id="onayIcapKart">${baslikHtml('⏳', 'Onay Bekleyen İcaplar', bekleyenler && bekleyenler.length ? `<span class="rozet r-turuncu">${bekleyenler.length}</span>` : '')}${bHtml}</div>`;
 
-    let izinQuery = sb.from('icap_izin_talepleri').select('*, personel:personel_id(ad_soyad, vardiya, rol)').eq('durum', 'onay_bekliyor');
+    let izinQuery = sb.from('icap_izin_talepleri').select('*, personel:personel_id(ad_soyad, vardiya, rol, kadro)').eq('durum', 'onay_bekliyor');
     if (rol === 'vardiya_cavusu') izinQuery = izinQuery.eq('personel.vardiya', mevcutPersonel.vardiya).eq('eksi_bakiye_mi', false);
     if (rol === 'grup_amiri' || rol === 'super_admin') izinQuery = izinQuery.or(`eksi_bakiye_mi.eq.true,personel.rol.in.(gunduz_85,gunduz_816)`);
     
@@ -432,7 +461,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       for (const b of izinler) {
         const { data: pIcaps } = await sb.from('icap_gorevleri').select('*').eq('personel_id', b.personel_id).eq('durum', 'onaylandi');
         const { data: pIzins } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', b.personel_id).eq('durum', 'onaylandi');
-        const pBakiye = bakiyeHesapla(pIcaps, pIzins);
+        const pBakiye = bakiyeHesapla(pIcaps, pIzins, b.personel.kadro);
         
         const talepSaat = (b.talep_edilen_dakika || 0) / 60;
         const sonraKalan = pBakiye.kalanSaat - talepSaat;
@@ -441,12 +470,12 @@ async function rolIcerikCiz(aktifler, hazirlar) {
           <div class="onay-ust">
             <div>
               <div class="hucre-isim">${esc(b.personel.ad_soyad)}</div>
-              <div class="hucre-alt">Tarih: ${esc(b.izin_tarihi)} ${b.eksi_bakiye_mi ? '<span class="rozet r-kirmizi">Eksi Bakiye</span>' : ''}</div>
+              <div class="hucre-alt">Tarih: ${esc(b.izin_tarihi)} ${kadroRozet(b.personel.kadro)} ${b.eksi_bakiye_mi ? '<span class="rozet r-kirmizi">Eksi Bakiye</span>' : ''}</div>
             </div>
             <span class="rozet r-mor">Talep: ${saatYazGun(talepSaat)}</span>
           </div>
           
-          <div style="margin-top:10px">${bakiyeDokumHtml(pBakiye, true)}
+          <div style="margin-top:10px">${bakiyeDokumHtml(pBakiye, b.personel.kadro, true)}
             <div class="dokum-satir sonra ${sonraKalan < 0 ? 'eksi' : ''}"><span>Onaylanırsa kalan</span><b>${saatYazGun(sonraKalan)}</b></div>
           </div>
 
@@ -638,19 +667,19 @@ async function reddet(id, tip) {
 async function izinModalAc() {
   const { data: icaps } = await sb.from('icap_gorevleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
   const { data: izins } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
-  const bakiye = bakiyeHesapla(icaps, izins);
+  const bakiye = bakiyeHesapla(icaps, izins, mevcutPersonel.kadro);
 
   const html = `<div class="modal aktif" id="izinModal"><div class="modal-content">
     <h3 style="color:var(--violet)">📅 İzin Talebi</h3>
     
-    <div style="margin-bottom:16px">${bakiyeDokumHtml(bakiye, true)}</div>
+    <div style="margin-bottom:16px">${bakiyeDokumHtml(bakiye, mevcutPersonel.kadro, true)}</div>
     
     <div class="uyari" style="margin-bottom:12px; background:#e8f0fa; color:var(--blue); border-color:#cfe0f3;">
-      ℹ️ <span>Kurum kuralı: 1 Gün İzin = 8 Saat (1 Nöbet Dilimi).</span>
+      ℹ️ <span>${mevcutPersonel.kadro === 'isci' ? 'Kurum kuralı: İşçi için 1 Gün İzin = 8 Saat (1 Nöbet Dilimi).' : 'Kurum kuralı: Memur için birebir (1 Saat = 1 Saat) izin.'}</span>
     </div>
 
     <div class="form-satir">
-      <div class="form-grup"><label>Süre (Saat)</label><input type="number" id="izinSaat" min="0" value="8"></div>
+      <div class="form-grup"><label>Süre (Saat)</label><input type="number" id="izinSaat" min="0" value="${mevcutPersonel.kadro === 'isci' ? '8' : '1'}"></div>
       <div class="form-grup"><label>Dakika</label><input type="number" id="izinDakika" min="0" max="59" value="0"></div>
     </div>
     <div class="form-grup"><label>Tarih</label><input type="date" id="izinTarih" value="${new Date().toISOString().split('T')[0]}"></div>
@@ -669,7 +698,7 @@ async function izinTalepEt() {
 
   const { data: icaps } = await sb.from('icap_gorevleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
   const { data: izins } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
-  const bakiye = bakiyeHesapla(icaps, izins).kalanSaat;
+  const bakiye = bakiyeHesapla(icaps, izins, mevcutPersonel.kadro).kalanSaat;
 
   const eksiMi = (toplamDk / 60) > bakiye;
   if (eksiMi && mevcutPersonel.rol !== 'grup_amiri' && mevcutPersonel.rol !== 'super_admin') {
@@ -869,6 +898,12 @@ async function adminTab(tab) {
               <option value="3">3. Vardiya</option>
             </select>
           </div>
+          <div class="form-grup"><label>Kadro (Hak Çarpanı)</label>
+            <select id="addKadro">
+              <option value="isci">İşçi (Şirket Personeli)</option>
+              <option value="memur">Memur (Birebir)</option>
+            </select>
+          </div>
         </div>
         <button type="button" class="btn btn-success" style="margin:0;width:auto" onclick="personelEkle()">➕ Personeli Kaydet</button>
       </div>
@@ -886,7 +921,7 @@ async function adminTab(tab) {
 
       <div class="tbl-wrap">
         <table class="tbl">
-          <thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Rol / Nitelik</th><th>Vardiya</th><th>Durum</th><th class="sag">Sil</th></tr></thead>
+          <thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Rol / Nitelik</th><th>Kadro</th><th>Vardiya</th><th>Durum</th><th class="sag">Sil</th></tr></thead>
           <tbody id="adminPersonelTbody"></tbody>
         </table>
       </div>`;
@@ -929,17 +964,23 @@ function filtrelePersonelListesi(secim) {
 
   let rows = '';
   if (filtrelenmisListe.length === 0) {
-    rows = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#8d97a5;">Bu vardiyada kayıtlı personel bulunamadı.</td></tr>';
+    rows = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#8d97a5;">Bu vardiyada kayıtlı personel bulunamadı.</td></tr>';
   } else {
     filtrelenmisListe.forEach(p => {
       const vardiyaAd = p.vardiya ? p.vardiya + ". Vardiya" : "Gündüz";
       const durum = p.auth_user_id ? '<span class="rozet r-yesil">Aktif</span>' : '<span class="rozet r-turuncu">Kayıt Bekliyor</span>';
       const nitelikAd = p.nitelik === 'sofor' ? '🚛 Şoför' : (p.nitelik === 'er' ? '👨‍🚒 Er' : '');
+      const kadroSec = `<select class="kadro-sec" onchange="personelKadroDegistir('${p.id}', this.value)">
+          ${!p.kadro ? '<option value="" selected disabled>Seçiniz</option>' : ''}
+          <option value="isci" ${p.kadro === 'isci' ? 'selected' : ''}>İşçi</option>
+          <option value="memur" ${p.kadro === 'memur' ? 'selected' : ''}>Memur</option>
+        </select>`;
 
       rows += `<tr>
         <td class="hucre-isim">${esc(p.ad_soyad)}</td>
         <td>${esc(p.email)}</td>
         <td>${rolRozet(p.rol)} <br><small style="color:#666">${nitelikAd}</small></td>
+        <td>${kadroSec}</td>
         <td>${vardiyaAd}</td>
         <td>${durum}</td>
         <td class="sag"><button type="button" class="sil-btn" onclick="personelSil('${p.id}')" title="Sil">🗑️</button></td>
@@ -956,6 +997,7 @@ async function personelEkle() {
   const rol = document.getElementById('addRol').value;
   const nitelik = document.getElementById('addNitelik').value;
   const vardiya = document.getElementById('addVardiya').value;
+  const kadro = document.getElementById('addKadro').value;
   
   if (!ad || !email) return toast("Lütfen tüm alanları doldurun.");
   
@@ -964,11 +1006,26 @@ async function personelEkle() {
     email: email, 
     rol: rol, 
     nitelik: nitelik, 
-    vardiya: vardiya ? parseInt(vardiya) : null
+    vardiya: vardiya ? parseInt(vardiya) : null,
+    kadro: kadro
   }]);
   
   if (error) toast("Hata: " + error.message);
   else { toast("Personel başarıyla eklendi.", "basari"); await logEkle("Personel Ekledi", ad); adminTab('personel'); }
+}
+
+async function personelKadroDegistir(id, kadro) {
+  const p = (window._adminPersonelListesi || []).find(x => x.id === id);
+  const yenile = () => filtrelePersonelListesi(document.getElementById('adminVardiyaFiltre')?.value || 'tumu');
+  if (!confirm(`${p?.ad_soyad || 'Personel'} kadrosu "${kadroAd(kadro)}" olarak değiştirilsin mi?\n\nOnaylanmış geçmiş icap kayıtlarının hakkı değişmez; yeni hesaplama yöntemi yalnızca bundan sonra onaylanacak icaplara uygulanır.`)) return yenile();
+  
+  const { error } = await sb.from('personel').update({ kadro }).eq('id', id);
+  if (error) { toast("Hata: " + error.message); return yenile(); }
+  if (p) p.kadro = kadro;
+  if (mevcutPersonel && mevcutPersonel.id === id) { mevcutPersonel.kadro = kadro; panelYukle(); }
+  toast("Kadro güncellendi.", "basari");
+  await logEkle("Kadro Değiştirdi", `${p?.ad_soyad || ''}: ${kadroAd(kadro)}`);
+  yenile();
 }
 
 async function personelSil(id) {
@@ -1000,20 +1057,27 @@ async function raporCsvIndir() {
   const basISO = new Date(bas + "T00:00:00").toISOString();
   const bitISO = new Date(bit + "T23:59:59").toISOString();
 
-  const { data: icaps } = await sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol)').eq('durum', 'onaylandi').gte('baslama_zamani', basISO).lte('baslama_zamani', bitISO).order('baslama_zamani', { ascending: true });
+  const { data: icaps } = await sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol, kadro)').eq('durum', 'onaylandi').gte('baslama_zamani', basISO).lte('baslama_zamani', bitISO).order('baslama_zamani', { ascending: true });
   if (!icaps || !icaps.length) return toast("Seçilen tarihlerde onaylanmış icap yok.");
 
-  let csv = "Personel,Rol,Gorev Aciklamasi,Baslangic,Bitis,Esas Sure(Saat),Hak Edilen (Gun),Hak Edilen (Saat)\n";
+  let csv = "Personel,Rol,Kadro,Gorev Aciklamasi,Baslangic,Bitis,Esas Sure(Saat),Hak Edilen (Saat)\n";
   let topEsas = 0, topHak = 0;
   icaps.forEach(i => {
     const ham = (i.toplam_dakika || 0) / 60;
-    const gunSayisi = Math.floor((ham * CARPAN) / GUNLUK_SAAT);
-    const hakSaat = gunSayisi * VARDIYA_SAAT;
+    let hakSaat = 0;
+    
+    if (i.personel.kadro === 'isci') {
+      const g = Math.floor((ham * ISCI_CARPAN) / GUNLUK_SAAT);
+      hakSaat = g * VARDIYA_SAAT;
+    } else {
+      hakSaat = ham;
+    }
+    
     topEsas += ham; topHak += hakSaat;
     const aciklama = (i.gorev_aciklamasi || "").replace(/"/g, '""');
-    csv += `"${i.personel.ad_soyad}","${rolAd(i.personel.rol)}","${aciklama}","${new Date(i.baslama_zamani).toLocaleString('tr-TR')}","${new Date(i.bitis_zamani).toLocaleString('tr-TR')}",${ham.toFixed(2)},${gunSayisi},${hakSaat.toFixed(2)}\n`;
+    csv += `"${i.personel.ad_soyad}","${rolAd(i.personel.rol)}","${kadroAd(i.personel.kadro)}","${aciklama}","${new Date(i.baslama_zamani).toLocaleString('tr-TR')}","${new Date(i.bitis_zamani).toLocaleString('tr-TR')}",${ham.toFixed(2)},${hakSaat.toFixed(2)}\n`;
   });
-  csv += `"TOPLAM","","","","",${topEsas.toFixed(2)},"",${topHak.toFixed(2)}\n`;
+  csv += `"TOPLAM","","","","","",${topEsas.toFixed(2)},${topHak.toFixed(2)}\n`;
   const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `icap_raporu_${bas}_${bit}.csv`; link.click();
   document.getElementById('raporModal')?.remove();
