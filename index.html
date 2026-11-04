@@ -345,6 +345,32 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 .ekip-degistir:active{transform:scale(.98)}
 .ekip-degistir svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
+/* ---------- BAKİYE DÖKÜMÜ (KALAN + DENKLEM) ---------- */
+.bakiye-hero{text-align:center;background:linear-gradient(135deg,#e6f5ef,#d4efe2);border:1px solid #bfe3d1;border-radius:16px;padding:16px 12px;margin-bottom:12px}
+.bakiye-hero.eksi{background:linear-gradient(135deg,#fdeceb,#fbd9d6);border-color:#f4c7cc}
+.bakiye-hero-etiket{font-size:10.5px;font-weight:800;letter-spacing:.9px;color:var(--text-2)}
+.bakiye-hero-deger{font-size:clamp(28px,9vw,36px);font-weight:900;letter-spacing:-.8px;color:var(--green);margin:4px 0 8px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bakiye-hero.eksi .bakiye-hero-deger{color:var(--red)}
+.dokum{background:#f6f8fb;border:1px solid var(--line);border-radius:14px;padding:4px 14px;margin-bottom:14px}
+.dokum-satir{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;font-size:13px;border-bottom:1px dashed #d5dce5}
+.dokum-satir:last-child{border-bottom:none}
+.dokum-satir span{color:var(--text-2);min-width:0}
+.dokum-satir b{white-space:nowrap;font-variant-numeric:tabular-nums}
+.dokum-satir.ilave b{color:var(--amber)}
+.dokum-satir.toplam span{color:var(--text);font-weight:700}
+.dokum-satir.toplam b{color:var(--blue)}
+.dokum-satir.kalan span{color:var(--text);font-weight:800}
+.dokum-satir.kalan b{color:var(--green);font-size:14px}
+.dokum-satir.kalan.eksi b{color:var(--red)}
+.dokum-satir.sonra{margin:-6px 0 4px;padding:9px 12px;border-radius:10px;background:var(--blue-soft);border:1px solid #cfe0f3;font-weight:700}
+.dokum-satir.sonra span{color:var(--blue)}
+.dokum-satir.sonra b{color:var(--blue)}
+.dokum-satir.sonra.eksi{background:var(--red-soft);border-color:#f4c7cc}
+.dokum-satir.sonra.eksi span,.dokum-satir.sonra.eksi b{color:var(--red)}
+.sure-formul{font-size:10.5px;color:var(--text-3);white-space:nowrap;text-align:right;margin-top:2px;font-weight:600}
+.tbl td.sag{white-space:nowrap}
+.kadro-sec{padding:6px 8px;border-radius:8px;border:1.5px solid #d5dce5;font-size:12px;font-weight:700;background:#fff;color:var(--text);outline:none}
+
 /* ---------- AÇILIR PANEL PENCERESİ ---------- */
 .panel-govde .kart{box-shadow:none;border:none;padding:0;background:transparent}
 .panel-govde .kart-baslik{display:none}
