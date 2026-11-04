@@ -27,7 +27,7 @@ const KARA_LISTE = ['123456','111111','000000','654321','123123','121212','11223
 let mevcutPersonel = null;
 let sistemAyar = { aktif_vardiya: 1 };
 let realtimeKanal = null;
-let anlikKalanBakiye = 0; // İzin modalı için global değişken
+let anlikKalanBakiye = 0; 
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -57,8 +57,9 @@ function kadroRozet(kadro) {
   return `<span class="rozet ${kadro === 'memur' ? 'r-mavi' : 'r-turuncu'}">${kadroAd(kadro)}</span>`;
 }
 
+// GÜNCELLENMİŞ FONKSİYON: Her zaman Saat ve Dakika gösterir
 function saatYazGun(saat) {
-  if (isNaN(saat) || saat === 0) return '0 Saat';
+  if (isNaN(saat)) return '0 Saat 0 Dk';
   const isaret = saat < 0 ? '−' : '';
   saat = Math.abs(saat);
   let saatTam = Math.floor(saat);
@@ -69,7 +70,8 @@ function saatYazGun(saat) {
   let res = isaret;
   if (saatTam > 0) res += `${saatTam} Saat `;
   if (dakika > 0) res += `${dakika} Dk`;
-  return res.trim() || '0 Saat';
+  
+  return res.trim() || '0 Dk';
 }
 
 // İzin talebi -> İcap düşüşü dönüştürücü (Ters Formül)
@@ -262,7 +264,6 @@ async function panelYukle() {
 
   const bakiye = bakiyeHesapla(icapGecmis, izinGecmis, mevcutPersonel.kadro);
 
-  // GEÇMİŞ LİSTESİ: Tüm kayıtlar satır satır ekleniyor (0 dakika olanlar dahil)
   const tumGecmis = [];
   if (icapGecmis) icapGecmis.forEach(g => {
       tumGecmis.push({ tip: 'icap', tarih: g.baslama_zamani, data: g });
@@ -440,7 +441,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
 
         bHtml += `<div class="onay-item">
           <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">${esc(rolAd(b.personel.rol))} ${kadroRozet(b.personel.kadro)}</div></div>
-            <div style="text-align:right"><span class="rozet r-turuncu">${sureYaz(b.toplam_dakika)}</span>${ekBilgi}</div></div>
+            <div style="text-align:right"><span class="rozet r-turuncu">${saatYazGun(hamSaat)}</span>${ekBilgi}</div></div>
           <div class="onay-btnler"><button type="button" class="btn btn-success" onclick="onayla('${b.id}', 'icap')">✓ Onayla</button><button type="button" class="btn btn-danger" onclick="reddet('${b.id}', 'icap')">✕ Reddet</button></div></div>`;
       });
     } else { bHtml = '<div class="bos">Onay bekleyen icap yok.</div>'; }
