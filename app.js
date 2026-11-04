@@ -262,13 +262,13 @@ async function panelYukle() {
 
   const bakiye = bakiyeHesapla(icapGecmis, izinGecmis, mevcutPersonel.kadro);
 
-  // GEÇMİŞ LİSTESİ GERİ EKLENDİ (Sadece 0'dan büyük olanlar)
+  // GEÇMİŞ LİSTESİ: Tüm kayıtlar satır satır ekleniyor (0 dakika olanlar dahil)
   const tumGecmis = [];
   if (icapGecmis) icapGecmis.forEach(g => {
-      if ((g.toplam_dakika || 0) > 0) tumGecmis.push({ tip: 'icap', tarih: g.baslama_zamani, data: g });
+      tumGecmis.push({ tip: 'icap', tarih: g.baslama_zamani, data: g });
   });
   if (izinGecmis) izinGecmis.forEach(g => {
-      if ((g.talep_edilen_dakika || 0) > 0) tumGecmis.push({ tip: 'izin', tarih: g.izin_tarihi + 'T00:00:00', data: g });
+      tumGecmis.push({ tip: 'izin', tarih: g.izin_tarihi + 'T00:00:00', data: g });
   });
   tumGecmis.sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
 
