@@ -49,6 +49,65 @@ function baslikHtml(simge, metin, sag = '') {
   return `<div class="kart-baslik"><div class="kart-baslik-simge">${simge}</div>${metin}${sag ? `<div class="sag">${sag}</div>` : ''}</div>`;
 }
 
+// ---------- İCAP HAK HESABI (MEMUR 1x / İŞÇİ 1,5x) ----------
+// Yuvarlama: Math.floor = aşağı yuvarla (dakikanın kesri hak doğurmaz).
+// Daire başkanlığı normal yuvarlama isterse yalnızca bu satırı Math.round yapın.
+const HAK_YUVARLAMA = Math.floor;
+
+function katsayiBul(kadro) { return kadro === 'memur' ? 1 : 1.5; }
+function katsayiYaz(k) { return String(k).replace('.', ','); }
+function kadroAd(kadro) { return kadro === 'memur' ? 'Memur' : 'İşçi'; }
+function kadroRozet(kadro) {
+  return `<span class="rozet ${kadro === 'memur' ? 'r-mavi' : 'r-turuncu'}">${kadroAd(kadro)} · ${katsayiYaz(katsayiBul(kadro))}x</span>`;
+}
+function dkKisa(dk) { dk = Math.abs(dk || 0); return dk >= 60 ? `${Math.floor(dk / 60)}s ${dk % 60}dk` : `${dk} dk`; }
+
+// Tek icap kaydının hakkı. Kayıtta katsayı/hak varsa o kullanılır (sonradan değişmez),
+// yoksa (eski kayıt) personelin güncel kadrosuna göre hesaplanır.
+function icapHak(kayit, kadro) {
+  const ham = kayit.toplam_dakika || 0;
+  const kat = kayit.katsayi != null ? Number(kayit.katsayi) : katsayiBul(kadro);
+  const hak = kayit.hak_dakika != null ? kayit.hak_dakika : HAK_YUVARLAMA(ham * kat);
+  return { ham, kat, hak, ilave: hak - ham };
+}
+
+// Toplamlar kayıt bazında toplanır: tablodaki satırlar her zaman toplama uyar.
+function bakiyeHesapla(icaplar, izinler, kadro) {
+  let ham = 0, hak = 0;
+  (icaplar || []).forEach(k => { const h = icapHak(k, kadro); ham += h.ham; hak += h.hak; });
+  const kullanilan = (izinler || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0);
+  return { ham, ilave: hak - ham, hak, kullanilan, kalan: hak - kullanilan };
+}
+
+// Onay anında kayda yazılacak katsayı ve hak (dakika)
+function onayAlanlari(hamDk, kadro) {
+  const kat = katsayiBul(kadro);
+  return { katsayi: kat, hak_dakika: HAK_YUVARLAMA((hamDk || 0) * kat) };
+}
+// Sütunlar henüz veritabanında yoksa onay yine de çalışsın
+function sutunYok(err) {
+  return !!err && (['42703', 'PGRST204'].includes(err.code) || /katsayi|hak_dakika/.test(err.message || ''));
+}
+
+// Bakiye dökümü: kompakt=false → büyük "Kalan" kutusu + döküm; true → yalnızca döküm (+ kalan satırı)
+function bakiyeDokumHtml(b, kadro, kompakt = false) {
+  const kat = katsayiBul(kadro);
+  const eksi = b.kalan < 0;
+  const kalanTxt = `${eksi ? '−' : ''}${sureYaz(b.kalan)}`;
+  const hero = kompakt ? '' : `<div class="bakiye-hero ${eksi ? 'eksi' : ''}">
+      <div class="bakiye-hero-etiket">KALAN BAKİYE</div>
+      <div class="bakiye-hero-deger">${kalanTxt}</div>
+      <div class="bakiye-hero-alt">${kadroRozet(kadro)}</div>
+    </div>`;
+  return `${hero}<div class="dokum">
+      <div class="dokum-satir"><span>Esas icap</span><b>${sureYaz(b.ham)}</b></div>
+      ${kat > 1 ? `<div class="dokum-satir ilave"><span>Katsayı ilavesi (×${katsayiYaz(kat)})</span><b>+${sureYaz(b.ilave)}</b></div>
+      <div class="dokum-satir toplam"><span>Toplam hak</span><b>${sureYaz(b.hak)}</b></div>` : ''}
+      <div class="dokum-satir"><span>Kullanılan izin</span><b>−${sureYaz(b.kullanilan)}</b></div>
+      ${kompakt ? `<div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kalan bakiye</span><b>${kalanTxt}</b></div>` : ''}
+    </div>`;
+}
+
 function toast(msg, tip = 'hata') {
   const t = document.getElementById('toast');
   t.innerText = msg;
@@ -186,12 +245,7 @@ async function panelYukle() {
   const { data: icapGecmis } = await sb.from('icap_gorevleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('baslama_zamani', { ascending: false });
   const { data: izinGecmis } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi').order('izin_tarihi', { ascending: false });
 
-  const carpan = mevcutPersonel.kadro === 'memur' ? 1 : 1.5;
-  const toplamHam = icapGecmis ? icapGecmis.reduce((s, x) => s + (x.toplam_dakika || 0), 0) : 0;
-  const toplamHak = Math.floor(toplamHam * carpan); 
-  const ilaveDk = toplamHak - toplamHam;
-  const kullanilan = izinGecmis ? izinGecmis.reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0) : 0;
-  const kalan = toplamHak - kullanilan;
+  const bakiye = bakiyeHesapla(icapGecmis, izinGecmis, mevcutPersonel.kadro);
 
   const tumGecmis = [];
   if (icapGecmis) icapGecmis.forEach(g => tumGecmis.push({ tip: 'icap', tarih: g.baslama_zamani, data: g }));
@@ -203,14 +257,9 @@ async function panelYukle() {
     let rows = '';
     tumGecmis.forEach(x => {
       if (x.tip === 'icap') {
-        const hamDk = x.data.toplam_dakika || 0;
-        const xIlave = Math.floor(hamDk * (carpan - 1));
-        const xToplam = hamDk + xIlave;
-        
-        let sureHtml = `<div class="artı">+${sureYaz(xToplam)}</div>`;
-        if (carpan > 1) {
-          sureHtml += `<div style="font-size:10px; color:var(--text-3); text-align:right; margin-top:2px;">Esas: ${sureYaz(hamDk)}<br>İlave: +${sureYaz(xIlave)}</div>`;
-        }
+        const h = icapHak(x.data, mevcutPersonel.kadro);
+        // Tek satırlık formül: işçide "25 dk × 1,5", memurda yalnızca hak
+        const sureHtml = `<div class="artı">+${sureYaz(h.hak)}</div>${h.kat > 1 ? `<div class="sure-formul">${dkKisa(h.ham)} × ${katsayiYaz(h.kat)}</div>` : ''}`;
 
         rows += `<tr>
           <td><span class="rozet r-yesil">İcap</span></td>
@@ -229,13 +278,7 @@ async function panelYukle() {
   document.getElementById('kisiselBakiyeKart').innerHTML = `
     <div class="kart">
       ${baslikHtml('💼', 'İcap / İzin Bakiyem')}
-      <div class="bakiye-grid" style="grid-template-columns: 1fr 1fr;">
-        <div class="bakiye-item"><div class="bakiye-etiket">Esas İcap</div><div class="bakiye-deger">${sureYaz(toplamHam)}</div></div>
-        <div class="bakiye-item"><div class="bakiye-etiket">${carpan > 1 ? 'Katsayı İlavesi (1.5x)' : 'Katsayı İlavesi (1x)'}</div><div class="bakiye-deger" style="color:var(--amber)">${carpan > 1 ? '+' + sureYaz(ilaveDk) : 'Yok'}</div></div>
-        <div class="bakiye-item" style="grid-column: span 2; background:#e8f0fa; border-color:#cfe0f3;"><div class="bakiye-etiket">Toplam Biriken Hak</div><div class="bakiye-deger" style="color:var(--blue); font-size:18px;">${sureYaz(toplamHak)}</div></div>
-        <div class="bakiye-item"><div class="bakiye-etiket">Kullanılan</div><div class="bakiye-deger">${sureYaz(kullanilan)}</div></div>
-        <div class="bakiye-item"><div class="bakiye-etiket">Kalan</div><div class="bakiye-deger" style="color:${kalan < 0 ? '#c8102e' : '#12805c'}">${kalan < 0 ? '-' : ''}${sureYaz(kalan)}</div></div>
-      </div>
+      ${bakiyeDokumHtml(bakiye, mevcutPersonel.kadro)}
       ${gecmisHtml}
     </div>`;
 
@@ -353,7 +396,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   }
 
   if (['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol)) {
-    let query = sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol, vardiya)').eq('durum', 'onay_bekliyor');
+    let query = sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol, vardiya, kadro)').eq('durum', 'onay_bekliyor');
     if (rol === 'vardiya_cavusu') query = query.eq('vardiya', mevcutPersonel.vardiya);
     const { data: bekleyenler } = await query;
     let bHtml = '';
@@ -361,7 +404,8 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       bekleyenSayi += bekleyenler.length;
       bekleyenler.forEach(b => {
         bHtml += `<div class="onay-item">
-          <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">${esc(rolAd(b.personel.rol))}</div></div><span class="rozet r-turuncu">${sureYaz(b.toplam_dakika)}</span></div>
+          <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">${esc(rolAd(b.personel.rol))} ${kadroRozet(b.personel.kadro)}</div></div>
+            <div style="text-align:right"><span class="rozet r-turuncu">${sureYaz(b.toplam_dakika)}</span>${katsayiBul(b.personel.kadro) > 1 ? `<div class="sure-formul">Hak: ${sureYaz(onayAlanlari(b.toplam_dakika, b.personel.kadro).hak_dakika)}</div>` : ''}</div></div>
           <div class="onay-btnler"><button type="button" class="btn btn-success" onclick="onayla('${b.id}', 'icap')">✓ Onayla</button><button type="button" class="btn btn-danger" onclick="reddet('${b.id}', 'icap')">✕ Reddet</button></div></div>`;
       });
     } else { bHtml = '<div class="bos">Onay bekleyen icap yok.</div>'; }
@@ -379,34 +423,24 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       bekleyenSayi += izinler.length;
       
       for (const b of izinler) {
-        const kadroRozet = b.personel.kadro === 'memur' ? '<span class="rozet r-mavi">Memur (1x)</span>' : '<span class="rozet r-turuncu">İşçi (1.5x)</span>';
-        const carpan = b.personel.kadro === 'memur' ? 1 : 1.5;
-        
         // Amir için personelin anlık birikim dökümünü hesapla
-        const { data: pIcaps } = await sb.from('icap_gorevleri').select('toplam_dakika').eq('personel_id', b.personel_id).eq('durum', 'onaylandi');
-        const { data: pIzins } = await sb.from('icap_izin_talepleri').select('talep_edilen_dakika').eq('personel_id', b.personel_id).eq('durum', 'onaylandi');
-        
-        const pToplamHam = (pIcaps || []).reduce((s, x) => s + (x.toplam_dakika || 0), 0);
-        const pToplamHak = Math.floor(pToplamHam * carpan);
-        const pIlaveDk = pToplamHak - pToplamHam;
-        const pKullanilan = (pIzins || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0);
-        const pKalan = pToplamHak - pKullanilan;
+        const { data: pIcaps } = await sb.from('icap_gorevleri').select('*').eq('personel_id', b.personel_id).eq('durum', 'onaylandi');
+        const { data: pIzins } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', b.personel_id).eq('durum', 'onaylandi');
+        const pBakiye = bakiyeHesapla(pIcaps, pIzins, b.personel.kadro);
+        const sonraKalan = pBakiye.kalan - b.talep_edilen_dakika;
 
         iHtml += `<div class="onay-item" style="border-left-color:var(--violet)">
           <div class="onay-ust">
             <div>
               <div class="hucre-isim">${esc(b.personel.ad_soyad)}</div>
-              <div class="hucre-alt">Tarih: ${esc(b.izin_tarihi)} ${kadroRozet} ${b.eksi_bakiye_mi ? '<span class="rozet r-kirmizi">Eksi Bakiye</span>' : ''}</div>
+              <div class="hucre-alt">Tarih: ${esc(b.izin_tarihi)} ${kadroRozet(b.personel.kadro)} ${b.eksi_bakiye_mi ? '<span class="rozet r-kirmizi">Eksi Bakiye</span>' : ''}</div>
             </div>
             <span class="rozet r-mor">Talep: ${sureYaz(b.talep_edilen_dakika)}</span>
           </div>
           
           <!-- Birikim Dökümü -->
-          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px; margin-top:8px; font-size:11.5px; display:flex; flex-direction:column; gap:4px;">
-            <div style="display:flex; justify-content:space-between;"><span>Esas İcap:</span> <b>${sureYaz(pToplamHam)}</b></div>
-            ${carpan > 1 ? `<div style="display:flex; justify-content:space-between; color:var(--amber);"><span>1.5x İlavesi:</span> <b>+${sureYaz(pIlaveDk)}</b></div>` : ''}
-            <div style="display:flex; justify-content:space-between; border-top:1px dashed #cbd5e1; padding-top:4px; margin-top:2px; font-weight:700; color:var(--blue);"><span>Toplam Birikim:</span> <b>${sureYaz(pToplamHak)}</b></div>
-            <div style="display:flex; justify-content:space-between; font-weight:700; color:${pKalan < 0 ? 'var(--red)' : 'var(--green)'};"><span>Kalan Bakiye:</span> <b>${sureYaz(pKalan)}</b></div>
+          <div style="margin-top:10px">${bakiyeDokumHtml(pBakiye, b.personel.kadro, true)}
+            <div class="dokum-satir sonra ${sonraKalan < 0 ? 'eksi' : ''}"><span>Onaylanırsa kalan</span><b>${sonraKalan < 0 ? '−' : ''}${sureYaz(sonraKalan)}</b></div>
           </div>
 
           <div class="onay-btnler"><button type="button" class="btn btn-success" onclick="onayla('${b.id}', 'izin')">✓ Onayla</button><button type="button" class="btn btn-danger" onclick="reddet('${b.id}', 'izin')">✕ Reddet</button></div>
@@ -561,14 +595,31 @@ async function icapBitir(id) {
   const { data } = await sb.from('icap_gorevleri').select('baslama_zamani').eq('id', id).single();
   const dk = Math.floor((new Date() - new Date(data.baslama_zamani)) / 60000);
   const otomatikOnay = ['grup_amiri', 'vardiya_cavusu', 'super_admin'].includes(mevcutPersonel.rol);
-  const { error } = await sb.from('icap_gorevleri').update({ bitis_zamani: new Date().toISOString(), toplam_dakika: dk, durum: otomatikOnay ? 'onaylandi' : 'onay_bekliyor', onaylayan_id: otomatikOnay ? mevcutPersonel.id : null, onay_zamani: otomatikOnay ? new Date().toISOString() : null }).eq('id', id);
+  const guncelle = { bitis_zamani: new Date().toISOString(), toplam_dakika: dk, durum: otomatikOnay ? 'onaylandi' : 'onay_bekliyor', onaylayan_id: otomatikOnay ? mevcutPersonel.id : null, onay_zamani: otomatikOnay ? new Date().toISOString() : null };
+  // Otomatik onaylananlarda katsayı ve hak o anda kayda yazılır (sonradan değişmez)
+  if (otomatikOnay) Object.assign(guncelle, onayAlanlari(dk, mevcutPersonel.kadro));
+  let { error } = await sb.from('icap_gorevleri').update(guncelle).eq('id', id);
+  if (error && sutunYok(error)) {
+    delete guncelle.katsayi; delete guncelle.hak_dakika;
+    ({ error } = await sb.from('icap_gorevleri').update(guncelle).eq('id', id));
+  }
   if (error) toast("Hata: " + error.message);
   else { toast("İcap bitirildi", "basari"); await logEkle("İcabı Bitirdi", `Süre: ${dk} dk`); panelYukle(); }
 }
 
 async function onayla(id, tip) {
   const tablo = tip === 'icap' ? 'icap_gorevleri' : 'icap_izin_talepleri';
-  const { error } = await sb.from(tablo).update({ durum: 'onaylandi', onaylayan_id: mevcutPersonel.id, onay_zamani: new Date().toISOString() }).eq('id', id);
+  const guncelle = { durum: 'onaylandi', onaylayan_id: mevcutPersonel.id, onay_zamani: new Date().toISOString() };
+  // İcap onayında katsayı ve hak (dakika) o anda kayda yazılır; sonradan kadro değişse de bu kayıt değişmez
+  if (tip === 'icap') {
+    const { data: k } = await sb.from('icap_gorevleri').select('toplam_dakika, personel:personel_id(kadro)').eq('id', id).single();
+    if (k) Object.assign(guncelle, onayAlanlari(k.toplam_dakika, k.personel?.kadro));
+  }
+  let { error } = await sb.from(tablo).update(guncelle).eq('id', id);
+  if (error && tip === 'icap' && sutunYok(error)) {
+    delete guncelle.katsayi; delete guncelle.hak_dakika;
+    ({ error } = await sb.from(tablo).update(guncelle).eq('id', id));
+  }
   if (error) return toast("Onaylanamadı: " + error.message);
   
   toast("Onaylandı", "basari");
@@ -591,34 +642,14 @@ async function reddet(id, tip) {
 
 // ---------- MODALLAR ----------
 async function izinModalAc() {
-  const { data: icaps } = await sb.from('icap_gorevleri').select('toplam_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
-  const { data: izins } = await sb.from('icap_izin_talepleri').select('talep_edilen_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
-  
-  const carpan = mevcutPersonel.kadro === 'memur' ? 1 : 1.5;
-  const toplamHam = (icaps || []).reduce((s, x) => s + (x.toplam_dakika || 0), 0);
-  const toplamHak = Math.floor(toplamHam * carpan);
-  const ilaveDk = toplamHak - toplamHam;
-  const kullanilan = (izins || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0);
-  const kalan = toplamHak - kullanilan;
+  const { data: icaps } = await sb.from('icap_gorevleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
+  const { data: izins } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
+  const bakiye = bakiyeHesapla(icaps, izins, mevcutPersonel.kadro);
 
   const html = `<div class="modal aktif" id="izinModal"><div class="modal-content">
     <h3 style="color:var(--violet)">📅 İzin Talebi</h3>
     
-    <div style="background:#f6f8fb; padding:12px; border-radius:10px; margin-bottom:16px; border:1px solid var(--line);">
-      <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;">
-        <span>Esas İcap:</span> <b>${sureYaz(toplamHam)}</b>
-      </div>
-      ${carpan > 1 ? `
-      <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px; color:var(--amber);">
-        <span>Katsayı İlavesi (1.5x):</span> <b>+${sureYaz(ilaveDk)}</b>
-      </div>` : ''}
-      <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px; color:var(--blue); border-top:1px dashed #ccc; padding-top:6px; font-weight:bold;">
-        <span>Toplam Biriken:</span> <b>${sureYaz(toplamHak)}</b>
-      </div>
-      <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--green); font-weight:bold;">
-        <span>Kalan Bakiye:</span> <b>${sureYaz(kalan)}</b>
-      </div>
-    </div>
+    <div style="margin-bottom:16px">${bakiyeDokumHtml(bakiye, mevcutPersonel.kadro, true)}</div>
 
     <div class="form-satir">
       <div class="form-grup"><label>Süre (Saat)</label><input type="number" id="izinSaat" min="0" value="1"></div>
@@ -638,15 +669,10 @@ async function izinTalepEt() {
   const toplamDk = (s * 60) + d;
   if (toplamDk <= 0) return toast("Geçerli süre girin.");
 
-  const { data: icaps } = await sb.from('icap_gorevleri').select('toplam_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
-  const { data: izins } = await sb.from('icap_izin_talepleri').select('talep_edilen_dakika').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
-  
-  const carpan = mevcutPersonel.kadro === 'memur' ? 1 : 1.5;
-  const toplamHam = (icaps || []).reduce((s, x) => s + (x.toplam_dakika || 0), 0);
-  const toplamHak = Math.floor(toplamHam * carpan);
-  const kullanilan = (izins || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0);
-  const bakiye = toplamHak - kullanilan;
-  
+  const { data: icaps } = await sb.from('icap_gorevleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
+  const { data: izins } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', mevcutPersonel.id).eq('durum', 'onaylandi');
+  const bakiye = bakiyeHesapla(icaps, izins, mevcutPersonel.kadro).kalan;
+
   const eksiMi = toplamDk > bakiye;
   if (eksiMi && mevcutPersonel.rol !== 'grup_amiri' && mevcutPersonel.rol !== 'super_admin') {
     if (!confirm("Bakiyeniz yetersiz! Eksi bakiyeye düşecek. Sadece Grup Amiri onaylayabilir. Onaylıyor musunuz?")) return;
@@ -917,13 +943,18 @@ function filtrelePersonelListesi(secim) {
       const vardiyaAd = p.vardiya ? p.vardiya + ". Vardiya" : "Gündüz";
       const durum = p.auth_user_id ? '<span class="rozet r-yesil">Aktif</span>' : '<span class="rozet r-turuncu">Kayıt Bekliyor</span>';
       const nitelikAd = p.nitelik === 'sofor' ? '🚛 Şoför' : (p.nitelik === 'er' ? '👨‍🚒 Er' : '');
-      const kadroAd = p.kadro === 'memur' ? '<span class="rozet r-mavi">Memur</span>' : '<span class="rozet r-turuncu">İşçi</span>';
-      
+      // Kadro doğrudan listeden değiştirilebilir; boşsa uyarı gösterilir
+      const kadroSec = `<select class="kadro-sec" onchange="personelKadroDegistir('${p.id}', this.value)">
+          ${!p.kadro ? '<option value="" selected disabled>Seçiniz</option>' : ''}
+          <option value="isci" ${p.kadro === 'isci' ? 'selected' : ''}>İşçi (1,5x)</option>
+          <option value="memur" ${p.kadro === 'memur' ? 'selected' : ''}>Memur (1x)</option>
+        </select>${!p.kadro ? '<div class="hucre-alt" style="color:var(--red);font-weight:700">⚠ Kadro belirtilmemiş</div>' : ''}`;
+
       rows += `<tr>
         <td class="hucre-isim">${esc(p.ad_soyad)}</td>
         <td>${esc(p.email)}</td>
         <td>${rolRozet(p.rol)} <br><small style="color:#666">${nitelikAd}</small></td>
-        <td>${kadroAd}</td>
+        <td>${kadroSec}</td>
         <td>${vardiyaAd}</td>
         <td>${durum}</td>
         <td class="sag"><button type="button" class="sil-btn" onclick="personelSil('${p.id}')" title="Sil">🗑️</button></td>
@@ -957,6 +988,19 @@ async function personelEkle() {
   else { toast("Personel başarıyla eklendi.", "basari"); await logEkle("Personel Ekledi", ad); adminTab('personel'); }
 }
 
+async function personelKadroDegistir(id, kadro) {
+  const p = (window._adminPersonelListesi || []).find(x => x.id === id);
+  const yenile = () => filtrelePersonelListesi(document.getElementById('adminVardiyaFiltre')?.value || 'tumu');
+  if (!confirm(`${p?.ad_soyad || 'Personel'} kadrosu "${kadroAd(kadro)} (${katsayiYaz(katsayiBul(kadro))}x)" olarak değiştirilsin mi?\n\nOnaylanmış geçmiş icap kayıtlarının hakkı değişmez; yeni katsayı yalnızca bundan sonra onaylanacak icaplara uygulanır.`)) return yenile();
+  const { error } = await sb.from('personel').update({ kadro }).eq('id', id);
+  if (error) { toast("Hata: " + error.message); return yenile(); }
+  if (p) p.kadro = kadro;
+  if (mevcutPersonel && mevcutPersonel.id === id) { mevcutPersonel.kadro = kadro; panelYukle(); }
+  toast("Kadro güncellendi.", "basari");
+  await logEkle("Kadro Değiştirdi", `${p?.ad_soyad || ''}: ${kadroAd(kadro)}`);
+  yenile();
+}
+
 async function personelSil(id) {
   if (!confirm("Bu personeli silmek istediğinize emin misiniz?")) return;
   const { error } = await sb.from('personel').delete().eq('id', id);
@@ -986,14 +1030,18 @@ async function raporCsvIndir() {
   const basISO = new Date(bas + "T00:00:00").toISOString();
   const bitISO = new Date(bit + "T23:59:59").toISOString();
 
-  const { data: icaps } = await sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol)').eq('durum', 'onaylandi').gte('baslama_zamani', basISO).lte('baslama_zamani', bitISO);
+  const { data: icaps } = await sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol, kadro)').eq('durum', 'onaylandi').gte('baslama_zamani', basISO).lte('baslama_zamani', bitISO).order('baslama_zamani', { ascending: true });
   if (!icaps || !icaps.length) return toast("Seçilen tarihlerde onaylanmış icap yok.");
 
-  let csv = "Personel,Rol,Gorev Aciklamasi,Baslangic,Bitis,Sure(Dakika)\n";
+  let csv = "Personel,Rol,Kadro,Gorev Aciklamasi,Baslangic,Bitis,Esas Sure(Dakika),Katsayi,Hak Edilen(Dakika)\n";
+  let topEsas = 0, topHak = 0;
   icaps.forEach(i => {
+    const h = icapHak(i, i.personel.kadro);
+    topEsas += h.ham; topHak += h.hak;
     const aciklama = (i.gorev_aciklamasi || "").replace(/"/g, '""');
-    csv += `"${i.personel.ad_soyad}","${i.personel.rol}","${aciklama}","${new Date(i.baslama_zamani).toLocaleString('tr-TR')}","${new Date(i.bitis_zamani).toLocaleString('tr-TR')}",${i.toplam_dakika}\n`;
+    csv += `"${i.personel.ad_soyad}","${rolAd(i.personel.rol)}","${kadroAd(i.personel.kadro)}","${aciklama}","${new Date(i.baslama_zamani).toLocaleString('tr-TR')}","${new Date(i.bitis_zamani).toLocaleString('tr-TR')}",${h.ham},"${katsayiYaz(h.kat)}",${h.hak}\n`;
   });
+  csv += `"TOPLAM","","","","","",${topEsas},"",${topHak}\n`;
   const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `icap_raporu_${bas}_${bit}.csv`; link.click();
   document.getElementById('raporModal')?.remove();
