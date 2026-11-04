@@ -279,14 +279,12 @@ async function panelYukle() {
         const hamSaat = (x.data.toplam_dakika || 0) / 60;
         const hakSaat = icapToIzin(hamSaat, mevcutPersonel.kadro);
         
-        // GÜNCELLEME: Süre kısmına önce gerçekleşen icap süresini yazdırıyoruz
+        // Sadece net süreyi yazdırıyoruz.
         let sureHtml = `<div style="font-weight:800; font-size:13px; color:var(--text);">${saatYazGun(hamSaat)}</div>`;
         
-        // Altına kazanç varsa yeşil renkle göster, yoksa kazanım yok yaz.
+        // Sadece bir kazanç varsa altına yeşil olarak ekle, yoksa hiçbir şey yazma.
         if (hakSaat > 0) {
             sureHtml += `<div class="sure-formul" style="color:var(--green);">+${saatYazGun(hakSaat)} Hak</div>`;
-        } else {
-            sureHtml += `<div class="sure-formul" style="color:var(--text-3);">Kazanım Yok</div>`;
         }
 
         rows += `<tr>
@@ -1240,4 +1238,4 @@ async function yedekGeriYukleIslem(event) {
 }
 
 // Sayfa açılışında oturum kontrolü
-if (sb) { sb.auth.getSession().then(({ data: { session } }) => { if (session) oturumBaslat(session.user); }); }
+if (sb) { sb.auth.getSession().then(({ data: { session } }) => { if (session) sb.auth.getSession().then(({ data: { session } }) => { if (session) oturumBaslat(session.user); }); }); }
