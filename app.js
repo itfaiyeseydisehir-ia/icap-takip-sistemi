@@ -104,37 +104,45 @@ const bakiyeKalanMetin = b => b.isci ? gunYaz(b.kalanGun) : dkYaz(b.kalanDk);
 
 function bakiyeDokumHtml(b, kadro, kompakt = false) {
   const eksi = bakiyeEksiMi(b);
-  let hero = '', satirlar = '';
-  const uyari = !kadro ? `<div class="uyari" style="margin-top:10px">⚠️ <span>Kadronuz (memur/işçi) seçilmemiş. Yöneticinize bildirin; o zamana kadar 1'e 1 hesaplanır.</span></div>` : '';
+  const uyari = !kadro ? `<div class="uyari" style="margin-top:10px">⚠️ <span>Kadronuz (memur/işçi) seçilmemiş. Yöneticinize bildirin; o zamana kadar icap süreniz 1'e 1 hesaplanır.</span></div>` : '';
+  const aciklama = (baslik, metin) => `<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;font-size:13px;color:var(--blue)">${baslik}</summary><div style="font-size:12.5px;line-height:1.55;color:var(--text);margin-top:8px">${metin}</div></details>`;
 
   if (b.isci) {
-    hero = kompakt ? '' : `<div class="bakiye-hero ${eksi ? 'eksi' : ''}">
-        <div class="bakiye-hero-etiket">KALAN İZİN HAKKINIZ</div>
-        <div class="bakiye-hero-deger" style="font-size: clamp(26px, 8vw, 34px);">${gunYaz(b.kalanGun)}</div>
-        <div class="bakiye-hero-alt" style="margin-top:6px">(${dkYaz(b.kalanGun * IZIN_GUN_DK)} izin)</div>
-        <div class="bakiye-hero-alt" style="margin-top:6px">+ ${dkYaz(b.birikenDk)} birikmekte</div>
-        <div class="bakiye-hero-alt" style="margin-top:8px">${kadroRozet(kadro)}</div>
+    const yuzde = Math.max(0, Math.min(100, Math.round((b.birikenDk / ISCI_GUN_ICAP_DK) * 100)));
+    if (kompakt) {
+      return `<div class="dokum"><div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kullanabileceğiniz izin</span><b>${gunYaz(b.kalanGun)}</b></div></div>`;
+    }
+    const hero = `<div class="bakiye-hero ${eksi ? 'eksi' : ''}">
+        <div class="bakiye-hero-etiket">KULLANABİLECEĞİNİZ İZİN</div>
+        <div class="bakiye-hero-deger" style="font-size: clamp(30px, 10vw, 40px);">${gunYaz(b.kalanGun)}</div>
+        <div class="bakiye-hero-alt" style="margin-top:4px">${eksi ? 'Eksi bakiye' : `= ${Math.round(b.kalanGun * 24)} saat izin`}</div>
+        <div style="margin-top:14px;text-align:left">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span>Sonraki izin gününe</span><b>${dkYaz(b.sonrakiGunDk)} icap kaldı</b></div>
+          <div style="height:8px;border-radius:99px;background:rgba(0,0,0,.12);overflow:hidden"><div style="height:100%;width:${yuzde}%;background:var(--green);border-radius:99px"></div></div>
+        </div>
+        <div class="bakiye-hero-alt" style="margin-top:10px">${kadroRozet(kadro)}</div>
       </div>`;
-    satirlar = `
-      <div class="dokum-satir"><span>Toplam İcap Süreniz</span><b>${dkYaz(b.toplamDk)}</b></div>
-      <div class="dokum-satir ilave"><span>Kazanılan Hak</span><b>${b.hakGun} gün (${b.hakGun * 24} saat)</b></div>
-      <div class="dokum-satir eksi"><span>Kullanılan İzin</span><b>−${gunYaz(b.kullanilanGun)}</b></div>
-      <div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kalan Hak</span><b>${gunYaz(b.kalanGun)}</b></div>
-      <div class="dokum-satir"><span>Birikmekte (henüz güne ulaşmadı)</span><b>${dkYaz(b.birikenDk)}</b></div>
-      <div class="dokum-satir"><span>Sonraki güne kalan</span><b>${dkYaz(b.sonrakiGunDk)}</b></div>`;
-    if (!kompakt) satirlar += `<div class="sure-formul" style="margin-top:8px;white-space:normal">Hesap: (Saat × 1,6) / 7,5 = Gün<br>1 tam gün = 24 saat izin</div>`;
-  } else {
-    hero = kompakt ? '' : `<div class="bakiye-hero ${eksi ? 'eksi' : ''}">
-        <div class="bakiye-hero-etiket">KALAN İZİN BAKİYENİZ</div>
-        <div class="bakiye-hero-deger" style="font-size: clamp(26px, 8vw, 34px);">${dkYaz(b.kalanDk)}</div>
-        <div class="bakiye-hero-alt" style="margin-top:8px">${kadroRozet(kadro)}</div>
-      </div>`;
-    satirlar = `
-      <div class="dokum-satir"><span>Toplam İcap Süreniz</span><b>${dkYaz(b.toplamDk)}</b></div>
-      <div class="dokum-satir eksi"><span>Kullanılan İzin</span><b>−${dkYaz(b.kullanilanDk)}</b></div>
-      <div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kalan Bakiye</span><b>${dkYaz(b.kalanDk)}</b></div>`;
+    return `${hero}<div class="dokum">
+        <div class="dokum-satir"><span>Toplam icap süreniz</span><b>${dkYaz(b.toplamDk)}</b></div>
+        <div class="dokum-satir"><span>Kazandığınız izin</span><b>${b.hakGun} gün</b></div>
+        <div class="dokum-satir"><span>Kullandığınız izin</span><b>${gunYaz(b.kullanilanGun)}</b></div>
+      </div>
+      ${aciklama('Nasıl hesaplanır?', `İşçi personelde icap süresi (Saat × 1,6) ÷ 7,5 formülüyle izin gününe çevrilir.<br><b>Yaklaşık her 4 saat 41 dakikalık icap = 1 gün (24 saat) izin.</b><br>Gün tamamlanmadan izin yazılmaz; tamamlanmayan süre bir sonraki güne eklenir.`)}${uyari}`;
   }
-  return `${hero}<div class="dokum">${satirlar}</div>${kompakt ? '' : uyari}`;
+
+  if (kompakt) {
+    return `<div class="dokum"><div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kullanabileceğiniz izin</span><b>${dkYaz(b.kalanDk)}</b></div></div>`;
+  }
+  const hero = `<div class="bakiye-hero ${eksi ? 'eksi' : ''}">
+      <div class="bakiye-hero-etiket">KULLANABİLECEĞİNİZ İZİN</div>
+      <div class="bakiye-hero-deger" style="font-size: clamp(26px, 8vw, 34px);">${dkYaz(b.kalanDk)}</div>
+      <div class="bakiye-hero-alt" style="margin-top:8px">${kadroRozet(kadro)}</div>
+    </div>`;
+  return `${hero}<div class="dokum">
+      <div class="dokum-satir"><span>Toplam icap süreniz</span><b>${dkYaz(b.toplamDk)}</b></div>
+      <div class="dokum-satir"><span>Kullandığınız izin</span><b>${dkYaz(b.kullanilanDk)}</b></div>
+    </div>
+    ${aciklama('Nasıl hesaplanır?', `Memur personelde icap süreniz kadar izin kullanırsınız: <b>1 saat icap = 1 saat izin</b>.`)}${uyari}`;
 }
 
 function toast(msg, tip = 'hata') {
@@ -292,9 +300,6 @@ async function panelYukle() {
     tumGecmis.forEach(x => {
       if (x.tip === 'icap') {
         let sureHtml = `<div style="font-weight:800; font-size:13px; color:var(--text);">${dkYaz(x.data.toplam_dakika)}</div>`;
-        if (isIsci(mevcutPersonel.kadro) && x.data.toplam_dakika > 0) {
-          sureHtml += `<div class="sure-formul" style="color:var(--green);">≈ ${gunYaz(icapGunKatki(x.data.toplam_dakika))}</div>`;
-        }
 
         rows += `<tr>
           <td><span class="rozet r-yesil">İcap</span></td>
@@ -442,7 +447,6 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       bekleyenSayi += bekleyenler.length;
       bekleyenler.forEach(b => {
         let ekBilgi = '';
-        if (isIsci(b.personel.kadro) && b.toplam_dakika > 0) ekBilgi = `<div class="sure-formul">≈ ${gunYaz(icapGunKatki(b.toplam_dakika))} katkı</div>`;
 
         bHtml += `<div class="onay-item">
           <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">${esc(rolAd(b.personel.rol))} ${kadroRozet(b.personel.kadro)}</div></div>
@@ -659,17 +663,33 @@ function widgetBildirimIzni() {
   try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
 }
 
+// Bildirim çubuğu için tek renkli (beyaz) küçük simge: Android bunu sistem rengiyle boyar
+let _rozetUrl = null;
+function widgetRozetUrl() {
+  if (_rozetUrl !== null) return _rozetUrl;
+  try {
+    const c = document.createElement('canvas'); c.width = c.height = 96;
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.beginPath();
+    g.moveTo(48, 6); g.bezierCurveTo(52, 28, 78, 38, 78, 62); g.bezierCurveTo(78, 80, 64, 90, 48, 90);
+    g.bezierCurveTo(32, 90, 18, 80, 18, 62); g.bezierCurveTo(18, 50, 26, 42, 32, 34);
+    g.bezierCurveTo(34, 44, 38, 48, 42, 50); g.bezierCurveTo(40, 32, 42, 18, 48, 6); g.fill();
+    _rozetUrl = c.toDataURL('image/png');
+  } catch (e) { _rozetUrl = undefined; }
+  return _rozetUrl;
+}
+
 async function widgetBildirimGuncelle(sureStr, zorla = false) {
   try {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     if (!zorla && Date.now() - widget.sonBildirim < 30000) return; // en fazla 30 sn'de bir
     widget.sonBildirim = Date.now();
-    const baslik = '🔥 İcap Görevi Devam Ediyor';
+    const kisaSure = sureStr.slice(0, 5); // SS:DD
     const secenek = {
-      body: `Geçen süre: ${sureStr}\nBaşlama: ${saatYaz(widget.baslama)} · ${mevcutPersonel?.ad_soyad || ''}`,
+      body: `Süre: ${kisaSure}  ·  Başlama: ${saatYaz(widget.baslama)}\nSeydişehir İtfaiyesi İcap Takip`,
       tag: 'icap-aktif', renotify: false, silent: true, requireInteraction: true,
-      icon: IKN_YANGIN, badge: IKN_YANGIN, timestamp: new Date(widget.baslama).getTime()
+      icon: IKN_YANGIN, badge: widgetRozetUrl(), timestamp: new Date(widget.baslama).getTime()
     };
+    const baslik = 'İcap Görevi Devam Ediyor';
     const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
     if (reg && reg.showNotification) await reg.showNotification(baslik, secenek);
     else new Notification(baslik, secenek);
