@@ -27,7 +27,7 @@ const KARA_LISTE = ['123456','111111','000000','654321','123123','121212','11223
 let mevcutPersonel = null;
 let sistemAyar = { aktif_vardiya: 1 };
 let realtimeKanal = null;
-let anlikKalanBakiye = 0; // izin formu için: işçide gün, memurda dakika (onay bekleyenler düşülmüş)
+let anlikKalanBakiye = 0; // izin formu için: kalan izin DAKİKASI (onay bekleyenler düşülmüş)
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -75,32 +75,36 @@ function gunYaz(g) {
 }
 
 // ---------- İŞÇİ İCAP İZNİ: (Saat × 1,6) / 7,5 = Gün ----------
-// 1 gün hak için gereken icap = 7,5 / 1,6 saat = 281,25 dk (4 sa 41 dk 15 sn → 3 gün = 14 sa 3 dk 45 sn)
-// Hesap tam sayı aritmetiğiyle yapılır (dk × 16 / 4500): kayan nokta hatası olmaz.
-// Gün hakkı toplam icap süresi üzerinden hesaplanır ve aşağı yuvarlanır (tam gün).
-const IZIN_GUN_DK = 24 * 60;          // 1 gün izin = 24 saatlik nöbet günü
-const ISCI_GUN_ICAP_DK = 4500 / 16;   // 281,25 dk
+// Daire başkanlığı: 14 sa 10 dk icap × 1,6 / 7,5 = 3 "gün" ve bu 3 gün, 1 nöbet günü (24 saat) izne denk gelir.
+// Yani formülden çıkan her "gün" 8 saatlik bir iş günüdür; 3 gün = 24 saat = 1 tam nöbet günü izin.
+// Hesap tam sayı aritmetiğiyle yapılır (dk × 16 / 4500). Gün, toplam icap üzerinden aşağı yuvarlanır.
+const IZIN_GUN_DK = 24 * 60;          // 1 tam izin günü = 24 saatlik nöbet günü
+const ISCI_IS_GUNU_DK = 8 * 60;       // formüldeki her "gün" = 8 saat izin
+const ISCI_GUN_ICAP_DK = 4500 / 16;   // 1 formül günü için gereken icap = 281,25 dk
+const ISCI_TAM_GUN_ICAP_DK = 3 * ISCI_GUN_ICAP_DK; // 24 saat izin için gereken icap = 843,75 dk (14 sa 3 dk 45 sn)
 function iscideGunHak(toplamDk) { return Math.floor(Math.round((toplamDk || 0) * 16) / 4500); }
+function icapGunKatki(dk) { return (dk || 0) * 16 / 4500; } // tek icabın formül günü (bilgi amaçlı)
 
-// Tek bir icabın gün katkısı (yalnızca bilgi amaçlı, kesirli)
-function icapGunKatki(dk) { return (dk || 0) * 16 / 4500; }
-
-// Dönüş: işçi → { isci:true, toplamDk, hakGun, kullanilanGun, kalanGun, birikenDk, sonrakiGunDk }
+// Dönüş: işçi → { isci:true, toplamDk, kullanilanDk, hakGun, hakDk, kalanDk, tamGun, sonrakiTamGunDk, ilerleme }
 //        memur → { isci:false, toplamDk, kullanilanDk, kalanDk }
 function bakiyeHesapla(icaplar, izinler, kadro) {
   const toplamDk = (icaplar || []).reduce((s, k) => s + (k.toplam_dakika || 0), 0);
   const kullanilanDk = (izinler || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0);
   if (isIsci(kadro)) {
     const hakGun = iscideGunHak(toplamDk);
-    const kullanilanGun = kullanilanDk / IZIN_GUN_DK;
-    const biriken = toplamDk - hakGun * ISCI_GUN_ICAP_DK;
-    return { isci: true, toplamDk, kullanilanDk, hakGun, kullanilanGun, kalanGun: hakGun - kullanilanGun,
-             birikenDk: biriken, sonrakiGunDk: ISCI_GUN_ICAP_DK - biriken };
+    const hakDk = hakGun * ISCI_IS_GUNU_DK;
+    const kalanDk = hakDk - kullanilanDk;
+    const tamGun = Math.max(0, Math.floor(kalanDk / IZIN_GUN_DK));
+    // Bir sonraki 24 saatlik izin günü için kaç formül günü (8 saat) daha gerekiyor?
+    const artik = ((kalanDk % IZIN_GUN_DK) + IZIN_GUN_DK) % IZIN_GUN_DK;
+    const gerekliGun = (IZIN_GUN_DK - artik) / ISCI_IS_GUNU_DK;
+    const sonrakiTamGunDk = Math.max(0, (hakGun + gerekliGun) * ISCI_GUN_ICAP_DK - toplamDk);
+    const ilerleme = Math.max(0, Math.min(1, 1 - sonrakiTamGunDk / (gerekliGun === 3 ? ISCI_TAM_GUN_ICAP_DK : Math.max(gerekliGun, 1) * ISCI_GUN_ICAP_DK)));
+    return { isci: true, toplamDk, kullanilanDk, hakGun, hakDk, kalanDk, tamGun, sonrakiTamGunDk, ilerleme };
   }
   return { isci: false, toplamDk, kullanilanDk, kalanDk: toplamDk - kullanilanDk };
 }
-const bakiyeEksiMi = b => b.isci ? b.kalanGun < 0 : b.kalanDk < 0;
-const bakiyeKalanMetin = b => b.isci ? gunYaz(b.kalanGun) : dkYaz(b.kalanDk);
+const bakiyeEksiMi = b => b.kalanDk < 0;
 
 function bakiyeDokumHtml(b, kadro, kompakt = false) {
   const eksi = bakiyeEksiMi(b);
@@ -108,26 +112,29 @@ function bakiyeDokumHtml(b, kadro, kompakt = false) {
   const aciklama = (baslik, metin) => `<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;font-size:13px;color:var(--blue)">${baslik}</summary><div style="font-size:12.5px;line-height:1.55;color:var(--text);margin-top:8px">${metin}</div></details>`;
 
   if (b.isci) {
-    const yuzde = Math.max(0, Math.min(100, Math.round((b.birikenDk / ISCI_GUN_ICAP_DK) * 100)));
     if (kompakt) {
-      return `<div class="dokum"><div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kullanabileceğiniz izin</span><b>${gunYaz(b.kalanGun)}</b></div></div>`;
+      return `<div class="dokum"><div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kullanabileceğiniz izin</span><b>${dkYaz(b.kalanDk)}</b></div>
+        <div class="dokum-satir"><span>Tam izin günü (24 saat)</span><b>${b.tamGun} gün</b></div></div>`;
     }
+    const alt = eksi ? 'Eksi bakiye'
+      : b.tamGun > 0 ? `${b.tamGun} tam gün (24 saat) izin kullanabilirsiniz`
+      : 'Tam gün (24 saat) izin için biraz daha icap gerekiyor';
     const hero = `<div class="bakiye-hero ${eksi ? 'eksi' : ''}">
-        <div class="bakiye-hero-etiket">KULLANABİLECEĞİNİZ İZİN</div>
-        <div class="bakiye-hero-deger" style="font-size: clamp(30px, 10vw, 40px);">${gunYaz(b.kalanGun)}</div>
-        <div class="bakiye-hero-alt" style="margin-top:4px">${eksi ? 'Eksi bakiye' : `= ${Math.round(b.kalanGun * 24)} saat izin`}</div>
+        <div class="bakiye-hero-etiket">KAZANDIĞINIZ İZİN</div>
+        <div class="bakiye-hero-deger" style="font-size: clamp(28px, 9vw, 38px);">${dkYaz(b.kalanDk)}</div>
+        <div class="bakiye-hero-alt" style="margin-top:4px">${alt}</div>
         <div style="margin-top:14px;text-align:left">
-          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span>Sonraki izin gününe</span><b>${dkYaz(b.sonrakiGunDk)} icap kaldı</b></div>
-          <div style="height:8px;border-radius:99px;background:rgba(0,0,0,.12);overflow:hidden"><div style="height:100%;width:${yuzde}%;background:var(--green);border-radius:99px"></div></div>
+          <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:5px"><span>Bir sonraki 24 saatlik izne</span><b>${dkYaz(b.sonrakiTamGunDk)} icap kaldı</b></div>
+          <div style="height:8px;border-radius:99px;background:rgba(0,0,0,.12);overflow:hidden"><div style="height:100%;width:${Math.round(b.ilerleme * 100)}%;background:var(--green);border-radius:99px"></div></div>
         </div>
         <div class="bakiye-hero-alt" style="margin-top:10px">${kadroRozet(kadro)}</div>
       </div>`;
     return `${hero}<div class="dokum">
         <div class="dokum-satir"><span>Toplam icap süreniz</span><b>${dkYaz(b.toplamDk)}</b></div>
-        <div class="dokum-satir"><span>Kazandığınız izin</span><b>${b.hakGun} gün</b></div>
-        <div class="dokum-satir"><span>Kullandığınız izin</span><b>${gunYaz(b.kullanilanGun)}</b></div>
+        <div class="dokum-satir"><span>Kazandığınız izin (toplam)</span><b>${dkYaz(b.hakDk)}</b></div>
+        <div class="dokum-satir"><span>Kullandığınız izin</span><b>${dkYaz(b.kullanilanDk)}</b></div>
       </div>
-      ${aciklama('Nasıl hesaplanır?', `İşçi personelde icap süresi (Saat × 1,6) ÷ 7,5 formülüyle izin gününe çevrilir.<br><b>Yaklaşık her 4 saat 41 dakikalık icap = 1 gün (24 saat) izin.</b><br>Gün tamamlanmadan izin yazılmaz; tamamlanmayan süre bir sonraki güne eklenir.`)}${uyari}`;
+      ${aciklama('Nasıl hesaplanır?', `İcap süresi (Saat × 1,6) ÷ 7,5 formülüyle gün sayısına çevrilir. Her tamamlanan gün <b>8 saat</b> izin yazılır.<br>Örnek: <b>14 saat 10 dk icap = 3 gün = 24 saat (1 tam nöbet günü) izin.</b><br>İzin, 24 saatlik tam gün olarak kullanılır. 1 tam gün için gereken icap yaklaşık 14 saat 4 dakikadır.`)}${uyari}`;
   }
 
   if (kompakt) {
@@ -472,10 +479,10 @@ async function rolIcerikCiz(aktifler, hazirlar) {
         const pBakiye = bakiyeHesapla(pIcaps, pIzins, b.personel.kadro);
         
         const isciMi = isIsci(b.personel.kadro);
-        const talepMetin = isciMi ? gunYaz(b.talep_edilen_dakika / IZIN_GUN_DK) : dkYaz(b.talep_edilen_dakika);
-        const sonraMetin = isciMi ? gunYaz(pBakiye.kalanGun - b.talep_edilen_dakika / IZIN_GUN_DK) : dkYaz(pBakiye.kalanDk - b.talep_edilen_dakika);
-        const sonraEksi = isciMi ? (pBakiye.kalanGun - b.talep_edilen_dakika / IZIN_GUN_DK) < 0 : (pBakiye.kalanDk - b.talep_edilen_dakika) < 0;
-        const mevcutMetin = isciMi ? `${gunYaz(pBakiye.kalanGun)} (+${dkYaz(pBakiye.birikenDk)} birikmekte)` : dkYaz(pBakiye.kalanDk);
+        const talepMetin = isciMi ? `${gunYaz(b.talep_edilen_dakika / IZIN_GUN_DK)} (${dkYaz(b.talep_edilen_dakika)})` : dkYaz(b.talep_edilen_dakika);
+        const sonraMetin = dkYaz(pBakiye.kalanDk - b.talep_edilen_dakika);
+        const sonraEksi = (pBakiye.kalanDk - b.talep_edilen_dakika) < 0;
+        const mevcutMetin = dkYaz(pBakiye.kalanDk);
 
         iHtml += `<div class="onay-item" style="border-left-color:var(--violet)">
           <div class="onay-ust">
@@ -824,7 +831,7 @@ async function izinModalAc() {
   const bakiye = bakiyeHesapla(icaps, izins, mevcutPersonel.kadro);
   const bekleyenDk = (bekleyen || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0);
   // Onay bekleyen talepler de düşülür: aynı hakla iki kez izin istenemesin
-  anlikKalanBakiye = bakiye.isci ? bakiye.kalanGun - bekleyenDk / IZIN_GUN_DK : bakiye.kalanDk - bekleyenDk;
+  anlikKalanBakiye = bakiye.kalanDk - bekleyenDk;
   const isci = bakiye.isci;
   const bekleyenNot = bekleyenDk > 0 ? `<div class="hucre-alt" style="margin-top:4px">Onay bekleyen talepleriniz: ${isci ? gunYaz(bekleyenDk / IZIN_GUN_DK) : dkYaz(bekleyenDk)} (düşüldü)</div>` : '';
 
@@ -872,10 +879,10 @@ function izinTalepDakika() {
 window.izinHesapGuncelle = function() {
   const isci = isIsci(mevcutPersonel.kadro);
   const dk = izinTalepDakika();
-  const sonra = isci ? anlikKalanBakiye - dk / IZIN_GUN_DK : anlikKalanBakiye - dk;
+  const sonra = anlikKalanBakiye - dk;
   document.getElementById('hesaplananIzin').innerText = isci ? `${gunYaz(dk / IZIN_GUN_DK)} (${dk / 60} saat)` : dkYaz(dk);
   const el = document.getElementById('kalanIzin');
-  el.innerText = isci ? gunYaz(sonra) : dkYaz(sonra);
+  el.innerText = dkYaz(sonra);
   el.style.color = sonra < 0 ? 'var(--red)' : 'var(--blue)';
 };
 
@@ -885,7 +892,7 @@ async function izinTalepEt() {
   if (toplamDk <= 0) return toast(isci ? "En az 1 gün girin." : "Geçerli süre girin.");
   const tarih = document.getElementById('izinTarih').value;
   if (!tarih) return toast("Tarih seçin.");
-  const eksiMi = (isci ? anlikKalanBakiye - toplamDk / IZIN_GUN_DK : anlikKalanBakiye - toplamDk) < 0;
+  const eksiMi = (anlikKalanBakiye - toplamDk) < 0;
 
   if (eksiMi && mevcutPersonel.rol !== 'grup_amiri' && mevcutPersonel.rol !== 'super_admin') {
     if (!confirm("Bakiyeniz yetersiz! Eksi bakiyeye düşecek ve talep Grup Amiri onayına gidecek. Devam edilsin mi?")) return;
@@ -1255,7 +1262,7 @@ async function raporCsvIndir() {
   const { data: icaps } = await sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol, kadro)').eq('durum', 'onaylandi').gte('baslama_zamani', basISO).lte('baslama_zamani', bitISO).order('baslama_zamani', { ascending: true });
   if (!icaps || !icaps.length) return toast("Seçilen tarihlerde onaylanmış icap yok.");
 
-  let csv = "Personel,Rol,Kadro,Gorev Aciklamasi,Baslangic,Bitis,Icap Suresi (Saat),Gun Katkisi (Isci)\n";
+  let csv = "Personel,Rol,Kadro,Gorev Aciklamasi,Baslangic,Bitis,Icap Suresi (Saat),Hesaplanan Gun Katkisi (Isci)\n";
   const ozet = {};
   let topDk = 0;
   icaps.forEach(i => {
@@ -1268,9 +1275,9 @@ async function raporCsvIndir() {
     csv += `"${i.personel.ad_soyad}","${rolAd(i.personel.rol)}","${kadroAd(i.personel.kadro)}","${aciklama}","${new Date(i.baslama_zamani).toLocaleString('tr-TR')}","${new Date(i.bitis_zamani).toLocaleString('tr-TR')}",${(dk / 60).toFixed(2)},${isci ? icapGunKatki(dk).toFixed(2) : ''}\n`;
   });
   csv += `"TOPLAM","","","","","",${(topDk / 60).toFixed(2)},\n\n`;
-  csv += "OZET (secilen donem),Kadro,Toplam Icap (Saat),Hak Edilen Tam Gun (Isci),Hak Edilen Izin (Saat)\n";
+  csv += "OZET (secilen donem),Kadro,Toplam Icap (Saat),Hesaplanan Gun (Isci),Hak Edilen Izin (Saat)\n";
   Object.values(ozet).forEach(o => {
-    if (isIsci(o.kadro)) { const g = iscideGunHak(o.dk); csv += `"${o.ad}","${kadroAd(o.kadro)}",${(o.dk / 60).toFixed(2)},${g},${g * 24}\n`; }
+    if (isIsci(o.kadro)) { const g = iscideGunHak(o.dk); csv += `"${o.ad}","${kadroAd(o.kadro)}",${(o.dk / 60).toFixed(2)},${g},${g * 8}\n`; }
     else csv += `"${o.ad}","${kadroAd(o.kadro)}",${(o.dk / 60).toFixed(2)},,${(o.dk / 60).toFixed(2)}\n`;
   });
   const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
