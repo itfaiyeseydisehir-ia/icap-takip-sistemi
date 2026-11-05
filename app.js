@@ -116,40 +116,27 @@ function bakiyeDokumHtml(b, kadro, kompakt = false) {
       return `<div class="dokum"><div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kullanabileceğiniz izin</span><b>${dkYaz(b.kalanDk)}</b></div>
         <div class="dokum-satir"><span>Tam izin günü (24 saat)</span><b>${b.tamGun} gün</b></div></div>`;
     }
-    const alt = eksi ? 'Eksi bakiye'
-      : b.tamGun > 0 ? `${b.tamGun} tam gün (24 saat) izin kullanabilirsiniz`
-      : 'Tam gün (24 saat) izin için biraz daha icap gerekiyor';
-    const hero = `<div class="bakiye-hero ${eksi ? 'eksi' : ''}">
-        <div class="bakiye-hero-etiket">KAZANDIĞINIZ İZİN</div>
-        <div class="bakiye-hero-deger" style="font-size: clamp(28px, 9vw, 38px);">${dkYaz(b.kalanDk)}</div>
-        <div class="bakiye-hero-alt" style="margin-top:4px">${alt}</div>
-        <div style="margin-top:14px;text-align:left">
-          <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:5px"><span>Bir sonraki 24 saatlik izne</span><b>${dkYaz(b.sonrakiTamGunDk)} icap kaldı</b></div>
-          <div style="height:8px;border-radius:99px;background:rgba(0,0,0,.12);overflow:hidden"><div style="height:100%;width:${Math.round(b.ilerleme * 100)}%;background:var(--green);border-radius:99px"></div></div>
-        </div>
-        <div class="bakiye-hero-alt" style="margin-top:10px">${kadroRozet(kadro)}</div>
-      </div>`;
-    return `${hero}<div class="dokum">
-        <div class="dokum-satir"><span>Toplam icap süreniz</span><b>${dkYaz(b.toplamDk)}</b></div>
-        <div class="dokum-satir"><span>Kazandığınız izin (toplam)</span><b>${dkYaz(b.hakDk)}</b></div>
-        <div class="dokum-satir"><span>Kullandığınız izin</span><b>${dkYaz(b.kullanilanDk)}</b></div>
+    return `<div class="dokum">
+        <div class="dokum-satir"><span>İcap Saati</span><b>${dkYaz(b.toplamDk)}</b></div>
+        <div class="dokum-satir ilave"><span>Hak Edilen İzin Saati</span><b>${dkYaz(b.hakDk)}</b></div>
+        <div class="dokum-satir"><span>Kullanılan İzin</span><b>${dkYaz(b.kullanilanDk)}</b></div>
+        <div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kalan İzin</span><b>${dkYaz(b.kalanDk)}</b></div>
       </div>
-      ${aciklama('Nasıl hesaplanır?', `İcap süresi (Saat × 1,6) ÷ 7,5 formülüyle gün sayısına çevrilir. Her tamamlanan gün <b>8 saat</b> izin yazılır.<br>Örnek: <b>14 saat 10 dk icap = 3 gün = 24 saat (1 tam nöbet günü) izin.</b><br>İzin, 24 saatlik tam gün olarak kullanılır. 1 tam gün için gereken icap yaklaşık 14 saat 4 dakikadır.`)}${uyari}`;
+      <div style="margin-top:8px">${kadroRozet(kadro)}</div>
+      ${aciklama('Nasıl hesaplanır?', `İcap süresi (Saat × 1,6) ÷ 7,5 formülüyle gün sayısına çevrilir; her tamamlanan gün <b>8 saat</b> izin yazılır.<br>Örnek: <b>14 saat 10 dk icap = 3 gün = 24 saat (1 tam gün) izin.</b><br>İzin 24 saatlik tam gün olarak kullanılır. 24 saat izin için gereken icap yaklaşık 14 saat 4 dakikadır.${b.tamGun < 1 && !eksi ? `<br><br>Tam gün izne ulaşmak için <b>${dkYaz(b.sonrakiTamGunDk)}</b> icap kaldı.` : ''}`)}${uyari}`;
   }
 
   if (kompakt) {
     return `<div class="dokum"><div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kullanabileceğiniz izin</span><b>${dkYaz(b.kalanDk)}</b></div></div>`;
   }
-  const hero = `<div class="bakiye-hero ${eksi ? 'eksi' : ''}">
-      <div class="bakiye-hero-etiket">KULLANABİLECEĞİNİZ İZİN</div>
-      <div class="bakiye-hero-deger" style="font-size: clamp(26px, 8vw, 34px);">${dkYaz(b.kalanDk)}</div>
-      <div class="bakiye-hero-alt" style="margin-top:8px">${kadroRozet(kadro)}</div>
-    </div>`;
-  return `${hero}<div class="dokum">
-      <div class="dokum-satir"><span>Toplam icap süreniz</span><b>${dkYaz(b.toplamDk)}</b></div>
-      <div class="dokum-satir"><span>Kullandığınız izin</span><b>${dkYaz(b.kullanilanDk)}</b></div>
+  return `<div class="dokum">
+      <div class="dokum-satir"><span>İcap Saati</span><b>${dkYaz(b.toplamDk)}</b></div>
+      <div class="dokum-satir ilave"><span>Hak Edilen İzin Saati</span><b>${dkYaz(b.toplamDk)}</b></div>
+      <div class="dokum-satir"><span>Kullanılan İzin</span><b>${dkYaz(b.kullanilanDk)}</b></div>
+      <div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kalan İzin</span><b>${dkYaz(b.kalanDk)}</b></div>
     </div>
-    ${aciklama('Nasıl hesaplanır?', `Memur personelde icap süreniz kadar izin kullanırsınız: <b>1 saat icap = 1 saat izin</b>.`)}${uyari}`;
+    <div style="margin-top:8px">${kadroRozet(kadro)}</div>
+    ${aciklama('Nasıl hesaplanır?', `Memur personelde icap süreniz kadar izin hakkı doğar: <b>1 saat icap = 1 saat izin</b>.`)}${uyari}`;
 }
 
 function toast(msg, tip = 'hata') {
