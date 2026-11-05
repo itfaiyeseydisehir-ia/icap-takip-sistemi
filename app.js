@@ -127,9 +127,10 @@ function bakiyeDokumHtml(b, kadro, kompakt = false) {
       <div class="dokum-satir eksi"><span>Kullanılan İzin</span><b>${dkYaz(b.kullanilanDk)}</b></div>
       <div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kalan İzin</span><b>${dkYaz(b.kalanDk)}</b></div>
     </div>
-    <div style="margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--muted,#64748b);background:#f6f8fb;border:1px solid var(--line);border-radius:10px;padding:10px 12px">
-      ℹ️ <b>24 saatlik izin</b> hak etmek için en az <b>14 Saat 4 Dk</b> icap görevi gerekir.
-    </div>
+    ${b.isci ? `<div style="margin-top:10px;font-size:13px;line-height:1.5;background:${b.tamGun > 0 ? '#e8f6ee' : '#f6f8fb'};border:1px solid var(--line);border-radius:10px;padding:10px 12px">
+      ${b.tamGun > 0 ? `✅ <b>${b.tamGun} tam gün (24 saat) izin</b> kullanabilirsiniz.<br>` : ''}
+      ⏳ ${b.tamGun > 0 ? 'Bir sonraki 24 saatlik izne' : '24 saatlik izin hak etmek için'} <b>${dkYaz(b.sonrakiTamGunDk)}</b> icap görevi kaldı.
+    </div>` : ''}
     <div style="margin-top:8px">${kadroRozet(kadro)}</div>
     ${aciklama(hesapMetin)}${uyari}`;
 }
