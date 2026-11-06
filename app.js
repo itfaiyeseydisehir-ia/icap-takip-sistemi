@@ -122,7 +122,7 @@ function bakiyeDokumHtml(b, kadro, kompakt = false) {
     return `<div class="dokum"><div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kalan izin</span><b>${dkYaz(b.kalanDk)}</b></div></div>`;
   }
   const hesapMetin = b.isci
-    ? `Daire başkanlığı uygulaması: <b>14 saat 10 dakika icap görevini tamamlayan personele 24 saat izin</b> verilir.<br>Ara süreler orantılıdır: her 4 saat 43 dakika icap = 8 saat izin. İzin 24 saatlik tam gün olarak kullanılır. Birden fazla günde yapılan icaplar toplanır.`
+    ? `Daire başkanlığı uygulaması: <b>14 saat 10 dakika icap görevini tamamlayan personele 24 saat izin</b> verilir.<br>Ara süreler orantılıdır: her 4 saat 43 dakika icap = 8 saat izin. İzin 24 saatlik tam gün olarak kullanılır.`
     : `İcap süreniz kadar izin kullanırsınız: <b>1 saat icap = 1 saat izin</b>.`; // (MEMUR_DA_FORMUL kapalıysa memur)
   return `<div class="dokum">
       <div class="dokum-satir"><span>İcap Saati</span><b>${dkYaz(b.toplamDk)}</b></div>
@@ -130,11 +130,17 @@ function bakiyeDokumHtml(b, kadro, kompakt = false) {
       <div class="dokum-satir eksi"><span>Kullanılan İzin</span><b>${dkYaz(b.kullanilanDk)}</b></div>
       <div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kalan İzin</span><b>${dkYaz(b.kalanDk)}</b></div>
     </div>
-    ${b.isci ? `<div style="margin-top:10px;font-size:13px;line-height:1.5;background:${b.tamGun > 0 ? '#e8f6ee' : '#f6f8fb'};border:1px solid var(--line);border-radius:10px;padding:10px 12px">
-      ${b.tamGun > 0 ? `✅ <b>${b.tamGun} tam gün (24 saat) izin</b> kullanabilirsiniz.<br>` : ''}
-      ⏳ ${b.tamGun > 0 ? 'Bir sonraki 24 saatlik izne' : '24 saatlik izin hak etmek için'} <b>${dkYaz(b.sonrakiTamGunDk)}</b> icap görevi kaldı.
+    ${b.isci ? `<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+      ${b.tamGun > 0 ? `<div style="display:flex;align-items:center;gap:12px;background:#e8f6ee;border:1px solid #bfe3cd;border-radius:12px;padding:12px 14px">
+        <div style="font-size:22px">✅</div>
+        <div><div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:#2f7d4f">KULLANILABİLİR İZİN</div>
+        <div style="font-size:16px;font-weight:800;color:#1c5a37">${b.tamGun} tam gün (${b.tamGun * 24} saat)</div></div></div>` : ''}
+      <div style="display:flex;align-items:center;gap:12px;background:#fff8ea;border:1px solid #f1dcae;border-radius:12px;padding:12px 14px">
+        <div style="font-size:22px">⏳</div>
+        <div><div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:#9a6a12">${b.tamGun > 0 ? 'SONRAKİ 24 SAATLİK İZNE KALAN İCAP' : '24 SAATLİK İZNE KALAN İCAP'}</div>
+        <div style="font-size:18px;font-weight:800;color:#6b4708">${dkYaz(b.sonrakiTamGunDk)}</div></div></div>
     </div>` : ''}
-    <div style="margin-top:8px">${kadroRozet(kadro)}</div>
+    <div style="margin-top:10px"><span class="rozet r-mavi">${MEMUR_DA_FORMUL ? 'İşçi / Memur' : kadroAd(kadro)}</span></div>
     ${aciklama(hesapMetin)}${uyari}`;
 }
 
