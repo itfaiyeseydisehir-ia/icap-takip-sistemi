@@ -75,18 +75,21 @@ function gunYaz(g) {
   return `${g < 0 ? '−' : ''}${sayiTr(Math.abs(g))} gün`;
 }
 
-// ---------- İŞÇİ İCAP İZNİ: (Saat × 1,6) / 7,5 = Gün ----------
-// Daire başkanlığı: 14 sa 10 dk icap × 1,6 / 7,5 = 3 "gün" ve bu 3 gün, 1 nöbet günü (24 saat) izne denk gelir.
-// Yani formülden çıkan her "gün" 8 saatlik bir iş günüdür; 3 gün = 24 saat = 1 tam nöbet günü izin.
-// Hesap tam sayı aritmetiğiyle yapılır (dk × 16 / 4500). Gün, toplam icap üzerinden aşağı yuvarlanır.
-// Memur için de aynı formül (14 sa 10 dk icap = 24 saat izin) uygulansın mı? false = memur 1'e 1 (1 saat icap = 1 saat izin)
+// ---------- İCAP İZNİ KURALI (İşçi + Memur) ----------
+// Daire başkanlığı uygulaması: 14 saat 10 dakika icap görevini tamamlayan personele 24 saat (1 nöbet günü) izin.
+// Formül karşılığı: (Saat × 1,6) / 7,5 = gün; 14 sa 10 dk ≈ 3 gün ve 3 gün = 24 saat (her gün 8 saat izin).
+// Eşik DAİRE BAŞKANLIĞININ BELİRTTİĞİ 14 sa 10 dk (850 dk) alınır; ara değerler orantılı: 850 / 3 = 283,33 dk = 8 saat izin.
+// Eşiği değiştirmek için yalnızca TAM_GUN_ICAP_DK değerini değiştirmek yeterlidir.
+// Hesap tam sayı aritmetiğiyle yapılır; gün, toplam icap üzerinden aşağı yuvarlanır.
+// Memur için de aynı kural uygulansın mı? false = memur 1'e 1
 const MEMUR_DA_FORMUL = true;
 const IZIN_GUN_DK = 24 * 60;          // 1 tam izin günü = 24 saatlik nöbet günü
-const ISCI_IS_GUNU_DK = 8 * 60;       // formüldeki her "gün" = 8 saat izin
-const ISCI_GUN_ICAP_DK = 4500 / 16;   // 1 formül günü için gereken icap = 281,25 dk
-const ISCI_TAM_GUN_ICAP_DK = 3 * ISCI_GUN_ICAP_DK; // 24 saat izin için gereken icap = 843,75 dk (14 sa 3 dk 45 sn)
-function iscideGunHak(toplamDk) { return Math.floor(Math.round((toplamDk || 0) * 16) / 4500); }
-function icapGunKatki(dk) { return (dk || 0) * 16 / 4500; } // tek icabın formül günü (bilgi amaçlı)
+const ISCI_IS_GUNU_DK = 8 * 60;       // her "gün" = 8 saat izin
+const TAM_GUN_ICAP_DK = 850;          // 24 saat izin için gereken icap: 14 saat 10 dakika
+const ISCI_GUN_ICAP_DK = TAM_GUN_ICAP_DK / 3;      // 8 saat izin için gereken icap = 283,33 dk
+const ISCI_TAM_GUN_ICAP_DK = TAM_GUN_ICAP_DK;
+function iscideGunHak(toplamDk) { return Math.floor(Math.round((toplamDk || 0) * 3) / TAM_GUN_ICAP_DK); }
+function icapGunKatki(dk) { return (dk || 0) * 3 / TAM_GUN_ICAP_DK; } // tek icabın gün karşılığı (bilgi amaçlı)
 
 // Dönüş: işçi → { isci:true, toplamDk, kullanilanDk, hakGun, hakDk, kalanDk, tamGun, sonrakiTamGunDk, ilerleme }
 //        memur → { isci:false, toplamDk, kullanilanDk, kalanDk }
@@ -119,7 +122,7 @@ function bakiyeDokumHtml(b, kadro, kompakt = false) {
     return `<div class="dokum"><div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kalan izin</span><b>${dkYaz(b.kalanDk)}</b></div></div>`;
   }
   const hesapMetin = b.isci
-    ? `İcap süresi (Saat × 1,6) ÷ 7,5 formülüyle güne çevrilir; her tamamlanan gün 8 saat izin yazılır.<br><b>Örnek: 14 saat 10 dk icap = 3 gün = 24 saat izin.</b><br>İzin, 24 saatlik tam gün olarak kullanılır. 1 tam gün için gereken icap yaklaşık 14 saat 4 dakikadır.`
+    ? `Daire başkanlığı uygulaması: <b>14 saat 10 dakika icap görevini tamamlayan personele 24 saat izin</b> verilir.<br>Ara süreler orantılıdır: her 4 saat 43 dakika icap = 8 saat izin. İzin 24 saatlik tam gün olarak kullanılır. Birden fazla günde yapılan icaplar toplanır.`
     : `İcap süreniz kadar izin kullanırsınız: <b>1 saat icap = 1 saat izin</b>.`; // (MEMUR_DA_FORMUL kapalıysa memur)
   return `<div class="dokum">
       <div class="dokum-satir"><span>İcap Saati</span><b>${dkYaz(b.toplamDk)}</b></div>
