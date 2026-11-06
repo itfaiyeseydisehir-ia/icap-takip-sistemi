@@ -137,7 +137,7 @@ function bakiyeDokumHtml(b, kadro, kompakt = false) {
         <div style="font-size:16px;font-weight:800;color:#1c5a37">${b.tamGun} tam gün (${b.tamGun * 24} saat)</div></div></div>` : ''}
       <div style="display:flex;align-items:center;gap:12px;background:#fff8ea;border:1px solid #f1dcae;border-radius:12px;padding:12px 14px">
         <div style="font-size:22px">⏳</div>
-        <div><div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:#9a6a12">${b.tamGun > 0 ? 'SONRAKİ 24 SAATLİK İZNE KALAN İCAP' : '24 SAATLİK İZNE KALAN İCAP'}</div>
+        <div><div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:#9a6a12">${b.tamGun > 0 ? 'SONRAKİ 24 SAATLİK İZİN İÇİN KALAN İCAP GÖREVİ' : '24 SAATLİK İZİN İÇİN KALAN İCAP GÖREVİ'}</div>
         <div style="font-size:18px;font-weight:800;color:#6b4708">${dkYaz(b.sonrakiTamGunDk)}</div></div></div>
     </div>` : ''}
     <div style="margin-top:10px"><span class="rozet r-mavi">${MEMUR_DA_FORMUL ? 'İşçi / Memur' : kadroAd(kadro)}</span></div>
