@@ -240,11 +240,13 @@ function realtimeBaslat() {
 // istasyona_varis_zamani boşsa personel yoldadır. Sütun veritabanında henüz yoksa eski davranış korunur (herkes istasyonda sayılır).
 function varisKolonuVar(liste) { return !liste || liste.length === 0 || ('istasyona_varis_zamani' in liste[0]); }
 function istasyondaMi(a, kolonVar) { return !kolonVar || !!a.istasyona_varis_zamani; }
-function aktifSatirHtml(a, durum) {
+function aktifSatirHtml(a, durum, sureGizle = false) {
   const dk = Math.floor((new Date() - new Date(a.baslama_zamani)) / 60000);
   const ad = a.personel?.ad_soyad || '';
   const bas = ad.split(' ').filter(Boolean).map(x => x[0]).slice(0, 2).join('').toUpperCase();
-  const durumRozet = durum === 'yolda' ? '<span class="rozet r-turuncu">🚗 Yolda</span>' : '<span class="rozet r-yesil">✓ İstasyonda</span>';
+  const durumRozet = durum === 'yolda'
+    ? '<span class="rozet r-turuncu" style="font-size:13px;padding:5px 12px;font-weight:800"><span style="font-size:16px;vertical-align:-1px">🚗</span> Yolda</span>'
+    : '<span class="rozet r-yesil" style="font-size:13px;padding:5px 12px;font-weight:800">✓ İstasyonda</span>';
   const saatler = `<span class="aktif-saat">Başlama ${saatYaz(a.baslama_zamani)}${durum === 'istasyonda' && a.istasyona_varis_zamani ? ' · Varış ' + saatYaz(a.istasyona_varis_zamani) : ''}</span>`;
   return `<div class="aktif-satir">
         <div class="aktif-avatar">${esc(bas)}</div>
@@ -253,7 +255,7 @@ function aktifSatirHtml(a, durum) {
           ${a.gorev_aciklamasi ? `<div class="aktif-gorev-metin">${esc(a.gorev_aciklamasi)}</div>` : ''}
           <div class="aktif-alt">${rolRozet(a.personel?.rol)}${durumRozet}${saatler}</div>
         </div>
-        <span class="rozet r-yesil aktif-sure" data-baslama="${esc(a.baslama_zamani)}">${sureYaz(dk)}</span>
+        ${sureGizle ? '' : `<span class="rozet r-yesil aktif-sure" data-baslama="${esc(a.baslama_zamani)}">${sureYaz(dk)}</span>`}
       </div>`;
 }
 
@@ -389,25 +391,30 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   const yoldakiler = (aktifler || []).filter(a => !istasyondaMi(a, kolonVar));
   let baslatanHtml = '';
   if (yoldakiler.length > 0 || kendiAktif) {
-    const satirlar = [...yoldakiler];
-    if (kendiAktif && !satirlar.some(a => a.id === kendiAktif.id)) satirlar.unshift(kendiAktif);
-    const kendiRows = satirlar.map(a => aktifSatirHtml(a, istasyondaMi(a, kolonVar) ? 'istasyonda' : 'yolda')).join('');
+    const kendiVardi = kendiAktif ? istasyondaMi(kendiAktif, kolonVar) : false;
+    // Yalnızca yoldakiler listelenir; istasyona varanlar aşağıdaki "Aktif İcap Görevindeki Personel" panosunda görünür (tekrar yok)
+    const kendiRows = yoldakiler.map(a => aktifSatirHtml(a, 'yolda', !!kendiAktif && a.id === kendiAktif.id)).join('');
+    const sadeceKendim = kendiAktif && kendiVardi && yoldakiler.length === 0;
     let kontrol = '';
     if (kendiAktif) {
-      const vardi = istasyondaMi(kendiAktif, kolonVar);
-      kontrol = `<div class="zaman" data-baslama="${esc(kendiAktif.baslama_zamani)}">00:00:00</div>
-        <div class="hucre-alt" style="text-align:center;margin:0 0 10px">${vardi ? '✅ İstasyondasınız, aktif icap görevlisiniz.' : '🚗 İstasyona gidiyorsunuz. Vardığınızda "İstasyondayım" butonuna basın.'}</div>
-        ${vardi || !kolonVar ? '' : `<button type="button" class="icap-baslat" onclick="istasyondayim('${kendiAktif.id}')" style="margin-bottom:10px">📍 İSTASYONDAYIM</button>`}
+      const sayacStil = kendiVardi ? ' style="font-size:38px;margin:6px 0 10px"' : '';
+      const banner = kendiVardi
+        ? `<div style="background:#e3f6ec;border:1px solid #9fd8b9;color:#17653f;border-radius:12px;padding:12px 14px;font-size:15px;font-weight:800;text-align:center;margin-bottom:12px;line-height:1.4">✅ İstasyondasınız<br><span style="font-weight:600;font-size:13.5px">Aktif icap görevlisi olarak listelendiniz</span></div>`
+        : `<div style="background:#fff3d6;border:1px solid #f1c453;color:#7a4b00;border-radius:12px;padding:12px 14px;font-size:15px;font-weight:800;text-align:center;margin-bottom:12px;line-height:1.45"><span style="font-size:20px;vertical-align:-2px">🚗</span> İstasyona gidiyorsunuz<br><span style="font-weight:600;font-size:14px">Vardığınızda “İstasyondayım” butonuna basın</span></div>`;
+      kontrol = `<div class="zaman"${sayacStil} data-baslama="${esc(kendiAktif.baslama_zamani)}">00:00:00</div>
+        ${banner}
+        ${kendiVardi || !kolonVar ? '' : `<button type="button" class="icap-baslat" onclick="istasyondayim('${kendiAktif.id}')" style="margin-bottom:10px">📍 İSTASYONDAYIM</button>`}
         <button type="button" class="icap-bitir" onclick="icapBitir('${kendiAktif.id}')">⏹ İCAP GÖREVİNİ BİTİR</button>`;
     }
+    const baslik = sadeceKendim ? 'İcap Göreviniz Devam Ediyor' : 'İcap Görevi Başlatan Personel';
+    const alt = sadeceKendim ? `İstasyondasınız · Başlama ${saatYaz(kendiAktif.baslama_zamani)}` : `${yoldakiler.length} personel yolda`;
     baslatanHtml = `<div class="icap-kart aktif-gorev">
       <div class="icap-ust"><div class="icap-ikon yesil"><span class="canli"></span></div>
-        <div><div class="icap-baslik">İcap Görevi Başlatan Personel</div><div class="icap-alt">${yoldakiler.length} personel yolda</div></div></div>
-      <div class="aktif-liste" style="margin:4px 0 12px;color:#0f172a">${kendiRows}</div>
+        <div><div class="icap-baslik">${baslik}</div><div class="icap-alt">${alt}</div></div></div>
+      ${kendiRows ? `<div class="aktif-liste" style="margin:4px 0 12px;color:#0f172a">${kendiRows}</div>` : ''}
       ${kontrol}
     </div>`;
   }
-
   if (kendiAktif) {
     // Kendi icap kartı aşağıda "İcap Görevi Başlatan Personel" grubunda gösterilir
   } else {
