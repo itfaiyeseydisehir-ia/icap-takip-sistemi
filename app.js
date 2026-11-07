@@ -137,7 +137,7 @@ function bakiyeDokumHtml(b, kadro, kompakt = false) {
         <div style="font-size:16px;font-weight:800;color:#1c5a37">${b.tamGun} tam gün (${b.tamGun * 24} saat)</div></div></div>` : ''}
       <div style="display:flex;align-items:center;gap:12px;background:#fff8ea;border:1px solid #f1dcae;border-radius:12px;padding:12px 14px">
         <div style="font-size:22px">⏳</div>
-        <div><div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:#9a6a12">${b.tamGun > 0 ? 'SONRAKİ 24 SAATLİK İZİN İÇİN KALAN İCAP GÖREVİ' : '24 SAATLİK İZİN İÇİN KALAN İCAP GÖREVİ'}</div>
+        <div><div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:#9a6a12">${b.tamGun > 0 ? 'SONRAKİ 24 SAATLİK İZNE KALAN İCAP' : '24 SAATLİK İZNE KALAN İCAP'}</div>
         <div style="font-size:18px;font-weight:800;color:#6b4708">${dkYaz(b.sonrakiTamGunDk)}</div></div></div>
     </div>` : ''}
     <div style="margin-top:10px"><span class="rozet r-mavi">${MEMUR_DA_FORMUL ? 'İşçi / Memur' : kadroAd(kadro)}</span></div>
@@ -375,9 +375,19 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   const kendiAktif = aktifler?.find(a => a.personel_id === mevcutPersonel.id);
 
   if (kendiAktif) {
+    const ad = mevcutPersonel.ad_soyad || '';
+    const bas = ad.split(' ').filter(Boolean).map(x => x[0]).slice(0, 2).join('').toUpperCase();
     gorevHtml += `<div class="icap-kart aktif-gorev">
       <div class="icap-ust"><div class="icap-ikon yesil"><span class="canli"></span></div>
-        <div><div class="icap-baslik">İcap Göreviniz Devam Ediyor</div><div class="icap-alt">Başlama: ${saatYaz(kendiAktif.baslama_zamani)}${kendiAktif.gorev_aciklamasi ? ' · ' + esc(kendiAktif.gorev_aciklamasi) : ''}</div></div></div>
+        <div><div class="icap-baslik">İcap Görevi Başlatan Personel</div><div class="icap-alt">İcap göreviniz devam ediyor</div></div></div>
+      <div class="aktif-satir" style="margin:4px 0 12px">
+        <div class="aktif-avatar">${esc(bas)}</div>
+        <div class="aktif-bilgi">
+          <div class="aktif-isim" style="color:#0f172a">${esc(ad)}</div>
+          ${kendiAktif.gorev_aciklamasi ? `<div class="aktif-gorev-metin" style="white-space:normal">${esc(kendiAktif.gorev_aciklamasi)}</div>` : ''}
+          <div class="aktif-alt">${rolRozet(rol)}${mevcutPersonel.vardiya ? `<span class="rozet r-gri">${esc(mevcutPersonel.vardiya)}. Vardiya</span>` : ''}<span class="aktif-saat">Başlama ${saatYaz(kendiAktif.baslama_zamani)}</span></div>
+        </div>
+      </div>
       <div class="zaman" data-baslama="${esc(kendiAktif.baslama_zamani)}">00:00:00</div>
       <button type="button" class="icap-bitir" onclick="icapBitir('${kendiAktif.id}')">⏹ İCAP GÖREVİNİ BİTİR</button>
     </div>`;
@@ -520,7 +530,12 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   el.innerHTML = html;
   hizliIslemleriCiz(rol, bekleyenSayi);
   const gk = document.getElementById('icapGorevKart');
+  const pano = document.getElementById('aktifIcapPano');
+  if (pano) document.getElementById('icapGrup').appendChild(pano); // yeniden çizimde panonun silinmemesi için önce dışarı al
   if (gk) gk.innerHTML = gorevHtml;
+  // Kendi icabım varken: 1) İcap Görevi Başlatan Personel  2) hemen altında aktif icap panosu (büyük sayı + liste)
+  const kendiKart = gk && gk.querySelector('.aktif-gorev');
+  if (pano && kendiKart) kendiKart.after(pano);
   sayacGuncelle();
 }
 
