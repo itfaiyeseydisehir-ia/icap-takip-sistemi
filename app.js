@@ -235,14 +235,38 @@ function realtimeBaslat() {
     .subscribe();
 }
 
+// ---------- İCAP AŞAMALARI: YOLDA → İSTASYONDA ----------
+// Personel "İcap Görevini Başlat"a basınca yola çıkar (yolda); istasyona varınca "İstasyondayım"a basar (aktif icap görevli).
+// istasyona_varis_zamani boşsa personel yoldadır. Sütun veritabanında henüz yoksa eski davranış korunur (herkes istasyonda sayılır).
+function varisKolonuVar(liste) { return !liste || liste.length === 0 || ('istasyona_varis_zamani' in liste[0]); }
+function istasyondaMi(a, kolonVar) { return !kolonVar || !!a.istasyona_varis_zamani; }
+function aktifSatirHtml(a, durum) {
+  const dk = Math.floor((new Date() - new Date(a.baslama_zamani)) / 60000);
+  const ad = a.personel?.ad_soyad || '';
+  const bas = ad.split(' ').filter(Boolean).map(x => x[0]).slice(0, 2).join('').toUpperCase();
+  const durumRozet = durum === 'yolda' ? '<span class="rozet r-turuncu">🚗 Yolda</span>' : '<span class="rozet r-yesil">✓ İstasyonda</span>';
+  const saatler = `<span class="aktif-saat">Başlama ${saatYaz(a.baslama_zamani)}${durum === 'istasyonda' && a.istasyona_varis_zamani ? ' · Varış ' + saatYaz(a.istasyona_varis_zamani) : ''}</span>`;
+  return `<div class="aktif-satir">
+        <div class="aktif-avatar">${esc(bas)}</div>
+        <div class="aktif-bilgi">
+          <div class="aktif-isim">${esc(ad)}</div>
+          ${a.gorev_aciklamasi ? `<div class="aktif-gorev-metin">${esc(a.gorev_aciklamasi)}</div>` : ''}
+          <div class="aktif-alt">${rolRozet(a.personel?.rol)}${durumRozet}${saatler}</div>
+        </div>
+        <span class="rozet r-yesil aktif-sure" data-baslama="${esc(a.baslama_zamani)}">${sureYaz(dk)}</span>
+      </div>`;
+}
+
 // ---------- ANA PANEL ----------
 async function panelYukle() {
   if (!mevcutPersonel) return;
 
   const { data: aktifler } = await sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol)').eq('durum', 'aktif').order('baslama_zamani', { ascending: true });
-  document.getElementById('aktifIcapSayisi').innerText = aktifler ? aktifler.length : 0;
+  const kolonVar = varisKolonuVar(aktifler);
+  const istasyondakiler = (aktifler || []).filter(a => istasyondaMi(a, kolonVar));
+  document.getElementById('aktifIcapSayisi').innerText = istasyondakiler.length;
   const aktifPano = document.getElementById('aktifIcapPano');
-  if (aktifPano) aktifPano.style.display = (aktifler && aktifler.length > 0) ? 'flex' : 'none';
+  if (aktifPano) aktifPano.style.display = istasyondakiler.length > 0 ? 'flex' : 'none';
   
   try {
     const { data: ayarTaze } = await sb.from('sistem_ayarlari').select('*').eq('id', 1).single();
@@ -252,23 +276,9 @@ async function panelYukle() {
   nobetCiz();
 
   let aHtml = '';
-  if (aktifler && aktifler.length > 0) {
-    let rows = '';
-    aktifler.forEach(a => {
-      const dk = Math.floor((new Date() - new Date(a.baslama_zamani)) / 60000);
-      const bas = a.personel.ad_soyad.split(' ').filter(Boolean).map(x => x[0]).slice(0, 2).join('').toUpperCase();
-      rows += `<div class="aktif-satir">
-        <div class="aktif-avatar">${esc(bas)}</div>
-        <div class="aktif-bilgi">
-          <div class="aktif-isim">${esc(a.personel.ad_soyad)}</div>
-          ${a.gorev_aciklamasi ? `<div class="aktif-gorev-metin">${esc(a.gorev_aciklamasi)}</div>` : ''}
-          <div class="aktif-alt">${rolRozet(a.personel.rol)}<span class="aktif-saat">Başlama ${saatYaz(a.baslama_zamani)}</span></div>
-        </div>
-        <span class="rozet r-yesil aktif-sure" data-baslama="${esc(a.baslama_zamani)}">${sureYaz(dk)}</span>
-      </div>`;
-    });
-    aHtml = `<div class="aktif-liste">${rows}</div>`;
-  } else { aHtml = '<div class="bos">Şu an icapta personel yok.</div>'; }
+  if (istasyondakiler.length > 0) {
+    aHtml = `<div class="aktif-liste">${istasyondakiler.map(a => aktifSatirHtml(a, 'istasyonda')).join('')}</div>`;
+  } else { aHtml = '<div class="bos">Şu an istasyonda icap görevli personel yok.</div>'; }
   document.getElementById('aktifIcapListe').innerHTML = aHtml;
 
   const { data: hazirHam } = await sb.from('hazir_icapcilar').select('*, er:er_personel_id(ad_soyad), sofor:sofor_personel_id(ad_soyad)').eq('durum', 'aktif').gte('bitis_zamani', new Date().toISOString());
@@ -374,23 +384,32 @@ async function rolIcerikCiz(aktifler, hazirlar) {
 
   const kendiAktif = aktifler?.find(a => a.personel_id === mevcutPersonel.id);
 
-  if (kendiAktif) {
-    const ad = mevcutPersonel.ad_soyad || '';
-    const bas = ad.split(' ').filter(Boolean).map(x => x[0]).slice(0, 2).join('').toUpperCase();
-    gorevHtml += `<div class="icap-kart aktif-gorev">
+  // GRUP 1 — İcap Görevi Başlatan Personel: yola çıkıp henüz istasyona varmamış personel (+ kendi icap kontrollerim)
+  const kolonVar = varisKolonuVar(aktifler);
+  const yoldakiler = (aktifler || []).filter(a => !istasyondaMi(a, kolonVar));
+  let baslatanHtml = '';
+  if (yoldakiler.length > 0 || kendiAktif) {
+    const satirlar = [...yoldakiler];
+    if (kendiAktif && !satirlar.some(a => a.id === kendiAktif.id)) satirlar.unshift(kendiAktif);
+    const kendiRows = satirlar.map(a => aktifSatirHtml(a, istasyondaMi(a, kolonVar) ? 'istasyonda' : 'yolda')).join('');
+    let kontrol = '';
+    if (kendiAktif) {
+      const vardi = istasyondaMi(kendiAktif, kolonVar);
+      kontrol = `<div class="zaman" data-baslama="${esc(kendiAktif.baslama_zamani)}">00:00:00</div>
+        <div class="hucre-alt" style="text-align:center;margin:0 0 10px">${vardi ? '✅ İstasyondasınız, aktif icap görevlisiniz.' : '🚗 İstasyona gidiyorsunuz. Vardığınızda "İstasyondayım" butonuna basın.'}</div>
+        ${vardi || !kolonVar ? '' : `<button type="button" class="icap-baslat" onclick="istasyondayim('${kendiAktif.id}')" style="margin-bottom:10px">📍 İSTASYONDAYIM</button>`}
+        <button type="button" class="icap-bitir" onclick="icapBitir('${kendiAktif.id}')">⏹ İCAP GÖREVİNİ BİTİR</button>`;
+    }
+    baslatanHtml = `<div class="icap-kart aktif-gorev">
       <div class="icap-ust"><div class="icap-ikon yesil"><span class="canli"></span></div>
-        <div><div class="icap-baslik">İcap Görevi Başlatan Personel</div><div class="icap-alt">İcap göreviniz devam ediyor</div></div></div>
-      <div class="aktif-satir" style="margin:4px 0 12px">
-        <div class="aktif-avatar">${esc(bas)}</div>
-        <div class="aktif-bilgi">
-          <div class="aktif-isim" style="color:#0f172a">${esc(ad)}</div>
-          ${kendiAktif.gorev_aciklamasi ? `<div class="aktif-gorev-metin" style="white-space:normal">${esc(kendiAktif.gorev_aciklamasi)}</div>` : ''}
-          <div class="aktif-alt">${rolRozet(rol)}${mevcutPersonel.vardiya ? `<span class="rozet r-gri">${esc(mevcutPersonel.vardiya)}. Vardiya</span>` : ''}<span class="aktif-saat">Başlama ${saatYaz(kendiAktif.baslama_zamani)}</span></div>
-        </div>
-      </div>
-      <div class="zaman" data-baslama="${esc(kendiAktif.baslama_zamani)}">00:00:00</div>
-      <button type="button" class="icap-bitir" onclick="icapBitir('${kendiAktif.id}')">⏹ İCAP GÖREVİNİ BİTİR</button>
+        <div><div class="icap-baslik">İcap Görevi Başlatan Personel</div><div class="icap-alt">${yoldakiler.length} personel yolda</div></div></div>
+      <div class="aktif-liste" style="margin:4px 0 12px;color:#0f172a">${kendiRows}</div>
+      ${kontrol}
     </div>`;
+  }
+
+  if (kendiAktif) {
+    // Kendi icap kartı aşağıda "İcap Görevi Başlatan Personel" grubunda gösterilir
   } else {
     let baslatabilir = true; let uyari = "";
     const suAn = new Date(); const gun = suAn.getDay(); const saat = suAn.getHours();
@@ -530,12 +549,17 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   el.innerHTML = html;
   hizliIslemleriCiz(rol, bekleyenSayi);
   const gk = document.getElementById('icapGorevKart');
+  const b1 = document.getElementById('icapBaslatanKart');
   const pano = document.getElementById('aktifIcapPano');
-  if (pano) document.getElementById('icapGrup').appendChild(pano); // yeniden çizimde panonun silinmemesi için önce dışarı al
-  if (gk) gk.innerHTML = gorevHtml;
-  // Kendi icabım varken: 1) İcap Görevi Başlatan Personel  2) hemen altında aktif icap panosu (büyük sayı + liste)
-  const kendiKart = gk && gk.querySelector('.aktif-gorev');
-  if (pano && kendiKart) kendiKart.after(pano);
+  const grup = document.getElementById('icapGrup');
+  if (b1 && grup) {
+    // Sıra: 1) İcap Görevi Başlatan Personel  2) Aktif icap panosu  3) diğer kartlar (Yeni İcap Görevi vb.)
+    b1.innerHTML = baslatanHtml;
+    if (gk) gk.innerHTML = gorevHtml;
+    if (baslatanHtml) grup.append(b1, pano, gk); else grup.append(gk, b1, pano);
+  } else if (gk) {
+    gk.innerHTML = baslatanHtml + gorevHtml; // eski index.html ile de panel kaybolmasın
+  }
   sayacGuncelle();
 }
 
@@ -801,6 +825,17 @@ async function icapBaslat() {
   const { error } = await sb.from('icap_gorevleri').insert([{ personel_id: mevcutPersonel.id, vardiya: mevcutPersonel.vardiya, gorev_aciklamasi: aciklama, durum: 'aktif' }]);
   if (error) { widgetKapat(); toast("Hata: " + error.message); }
   else { toast("İcap başlatıldı", "basari"); widget.sonBildirim = 0; await logEkle("İcap Başlattı", aciklama); panelYukle(); }
+}
+
+async function istasyondayim(id) {
+  const { error } = await sb.from('icap_gorevleri').update({ istasyona_varis_zamani: new Date().toISOString() }).eq('id', id);
+  if (error) {
+    if (['42703', 'PGRST204'].includes(error.code) || /istasyona_varis/.test(error.message || '')) return toast("Veritabanı güncellemesi gerekli (SQL dosyası çalıştırılmalı).");
+    return toast("Hata: " + error.message);
+  }
+  toast("İstasyona varışınız kaydedildi. Aktif icap görevlisiniz.", "basari");
+  await logEkle("İstasyona Vardı");
+  panelYukle();
 }
 
 async function icapBitir(id) {
