@@ -76,13 +76,13 @@ function gunYaz(g) {
 }
 
 // ---------- İCAP İZNİ KURALI (İşçi + Memur) ----------
-// Daire başkanlığı uygulaması: 14 saat 10 dakika icap görevini tamamlayan personele 24 saat (1 nöbet günü) izin.
+// İŞÇİ: 14 saat 10 dakika icap görevini tamamlayan personele 24 saat (1 nöbet günü) izin. MEMUR: 1'e 1 (MEMUR_DA_FORMUL = false).
 // Formül karşılığı: (Saat × 1,6) / 7,5 = gün; 14 sa 10 dk ≈ 3 gün ve 3 gün = 24 saat (her gün 8 saat izin).
 // Eşik DAİRE BAŞKANLIĞININ BELİRTTİĞİ 14 sa 10 dk (850 dk) alınır; ara değerler orantılı: 850 / 3 = 283,33 dk = 8 saat izin.
 // Eşiği değiştirmek için yalnızca TAM_GUN_ICAP_DK değerini değiştirmek yeterlidir.
 // Hesap tam sayı aritmetiğiyle yapılır; gün, toplam icap üzerinden aşağı yuvarlanır.
 // Memur için de aynı kural uygulansın mı? false = memur 1'e 1
-const MEMUR_DA_FORMUL = true;
+const MEMUR_DA_FORMUL = false; // memur: 1 saat icap = 1 saat izin (24 saat icap → 24 saat izin hakkı, kullanınca 24 saat düşer); işçi: 14 sa 10 dk → 24 saat
 const IZIN_GUN_DK = 24 * 60;          // 1 tam izin günü = 24 saatlik nöbet günü
 const ISCI_IS_GUNU_DK = 8 * 60;       // her "gün" = 8 saat izin
 const TAM_GUN_ICAP_DK = 850;          // 24 saat izin için gereken icap: 14 saat 10 dakika
