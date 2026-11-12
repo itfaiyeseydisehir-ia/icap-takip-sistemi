@@ -209,7 +209,7 @@ async function oturumBaslat(user) {
 
   document.getElementById('ustIsim').innerText = mevcutPersonel.ad_soyad;
   document.getElementById('ustRol').innerText = rolAd(mevcutPersonel.rol).toUpperCase();
-  document.getElementById('ustVardiya').innerText = mevcutPersonel.vardiya ? mevcutPersonel.vardiya + ". Vardiya" : "Gündüz Personeli";
+  document.getElementById('ustVardiya').innerHTML = `<b class="ust-ad">${esc(mevcutPersonel.ad_soyad)} · </b><span class="ust-vrd">${mevcutPersonel.vardiya ? mevcutPersonel.vardiya + '. Vardiya' : 'Gündüz Personeli'}</span>`;
   const bas = mevcutPersonel.ad_soyad.split(' ').filter(Boolean).map(x => x[0]).slice(0, 2).join('').toUpperCase();
   document.getElementById('ustAvatar').innerText = bas || '–';
 
@@ -408,15 +408,17 @@ async function rolIcerikCiz(aktifler, hazirlar) {
         ${kendiVardi || !kolonVar ? '' : `<button type="button" class="icap-baslat" onclick="istasyondayim('${kendiAktif.id}')" style="margin-bottom:10px">📍 İSTASYONDAYIM</button>`}
         <button type="button" class="icap-bitir" onclick="icapBitir('${kendiAktif.id}')">⏹ İCAP GÖREVİNİ BİTİR</button>
         <details class="manuel-kutu" id="mbDetay">
-          <summary>🕒 Bitiş saatini manuel gir <small>(bitirmeyi unuttum)</small></summary>
+          <summary><span class="manuel-simge">🕒</span><span class="manuel-baslik">Bitiş Saatini Manuel Gir</span><span class="manuel-ok">⌄</span></summary>
           <div class="manuel-ic">
             <div class="manuel-not">Başlama: ${esc(tarihYaz(kendiAktif.baslama_zamani))} ${esc(saatYaz(kendiAktif.baslama_zamani))}. Görevin gerçekte bittiği zamanı seçin.</div>
-            <div class="manuel-satir">
-              <select id="mbGun" onchange="manuelBitisOzet('${kendiAktif.id}')">${gunSecenekleriHtml(MANUEL_GERI_GUN)}</select>
-              <input type="time" id="mbSaat" step="60" onchange="manuelBitisOzet('${kendiAktif.id}')">
+            <div class="manuel-grup"><div class="manuel-grup-baslik">BİTİŞ</div>
+              <div class="manuel-satir">
+                <label><span>Tarih</span>${tarihInputHtml('mbGun', `manuelBitisOzet('${kendiAktif.id}')`)}</label>
+                <label><span>Saat</span><input type="time" id="mbSaat" step="60" onchange="manuelBitisOzet('${kendiAktif.id}')"></label>
+              </div>
             </div>
             <div class="manuel-ozet" id="mbOzet">Bitiş saatini seçin.</div>
-            <button type="button" class="icap-bitir manuel-kaydet" onclick="icapBitirManuel('${kendiAktif.id}')">⏹ BU SAATTE BİTİR</button>
+            <button type="button" class="icap-bitir manuel-kaydet-bitir" onclick="icapBitirManuel('${kendiAktif.id}')">⏹ BU SAATTE BİTİR</button>
           </div>
         </details>`;
     }
@@ -465,21 +467,23 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       <textarea id="gorevAciklama" rows="2" placeholder="Açıklama (isteğe bağlı) — örn: Mahalle, adres..." ${!baslatabilir ? 'disabled' : ''}></textarea>
       <button type="button" class="icap-baslat" onclick="icapBaslat()" ${!baslatabilir ? 'disabled' : ''}>▶ İCAP GÖREVİNİ BAŞLAT</button>
       <details class="manuel-kutu" id="mnDetay">
-        <summary>🕒 Manuel İcap Girişi <small>(başlatmayı/bitirmeyi unuttum)</small></summary>
+        <summary><span class="manuel-simge">🕒</span><span class="manuel-baslik">Manuel İcap Girişi</span><span class="manuel-ok">⌄</span></summary>
         <div class="manuel-ic">
-          <div class="manuel-not">İcap başlatmayı veya bitirmeyi unuttuysanız, görevin gerçek başlama ve bitiş zamanını saat seçici ile girin. Kayıt onaya gider.</div>
-          <div class="adim-etiket">BAŞLAMA</div>
-          <div class="manuel-satir">
-            <select id="mnGunB" onchange="manuelOzetGuncelle()">${gunSecenekleriHtml(MANUEL_GERI_GUN)}</select>
-            <input type="time" id="mnSaatB" step="60" onchange="manuelOzetGuncelle()">
+          <div class="manuel-not">İcap görevini panelden başlatmayı unutursanız manuel giriş panelinden başlama ve bitiş tarih ve saatlerini girebilirsiniz. Kaydedilen bilgiler onaya gider.</div>
+          <div class="manuel-grup"><div class="manuel-grup-baslik">BAŞLAMA</div>
+            <div class="manuel-satir">
+              <label><span>Tarih</span>${tarihInputHtml('mnGunB', 'manuelOzetGuncelle()')}</label>
+              <label><span>Saat</span><input type="time" id="mnSaatB" step="60" onchange="manuelOzetGuncelle()"></label>
+            </div>
           </div>
-          <div class="adim-etiket">BİTİŞ</div>
-          <div class="manuel-satir">
-            <select id="mnGunS" onchange="manuelOzetGuncelle()">${gunSecenekleriHtml(MANUEL_GERI_GUN)}</select>
-            <input type="time" id="mnSaatS" step="60" onchange="manuelOzetGuncelle()">
+          <div class="manuel-grup"><div class="manuel-grup-baslik">BİTİŞ</div>
+            <div class="manuel-satir">
+              <label><span>Tarih</span>${tarihInputHtml('mnGunS', 'manuelOzetGuncelle()')}</label>
+              <label><span>Saat</span><input type="time" id="mnSaatS" step="60" onchange="manuelOzetGuncelle()"></label>
+            </div>
           </div>
           <div class="manuel-ozet" id="mnOzet">Başlama ve bitiş saatini seçin.</div>
-          <button type="button" class="icap-baslat manuel-kaydet" onclick="icapManuelKaydet()">✓ MANUEL İCABI KAYDET</button>
+          <button type="button" class="manuel-kaydet" onclick="icapManuelKaydet()">✓ MANUEL İCABI KAYDET</button>
         </div>
       </details>
     </div>`;
@@ -948,6 +952,10 @@ function gunSecenekleriHtml(geriGun) {
     o += `<option value="${yerelTarih(d)}">${adlar[i] || i + ' gün önce'} · ${d.toLocaleDateString('tr-TR')}</option>`;
   }
   return o;
+}
+function tarihInputHtml(id, onchange) {
+  const bugun = new Date(), min = new Date(); min.setDate(min.getDate() - MANUEL_GERI_GUN);
+  return `<input type="date" id="${id}" value="${yerelTarih(bugun)}" min="${yerelTarih(min)}" max="${yerelTarih(bugun)}" onchange="${onchange}">`;
 }
 function tarihSaatOku(gunId, saatId) {
   const g = document.getElementById(gunId)?.value, s = document.getElementById(saatId)?.value;
