@@ -244,16 +244,18 @@ function aktifSatirHtml(a, durum, sureGizle = false) {
   const dk = Math.floor((new Date() - new Date(a.baslama_zamani)) / 60000);
   const ad = a.personel?.ad_soyad || '';
   const bas = ad.split(' ').filter(Boolean).map(x => x[0]).slice(0, 2).join('').toUpperCase();
-  const durumRozet = durum === 'yolda'
+  const yolda = durum === 'yolda';
+  const durumRozet = yolda
     ? '<span class="rozet r-turuncu" style="font-size:13px;padding:5px 12px;font-weight:800"><span style="font-size:16px;vertical-align:-1px">🚗</span> Yolda</span>'
-    : '<span class="rozet r-yesil" style="font-size:13px;padding:5px 12px;font-weight:800">✓ İstasyonda</span>';
-  const saatler = `<span class="aktif-saat">Başlama ${saatYaz(a.baslama_zamani)}${durum === 'istasyonda' && a.istasyona_varis_zamani ? ' · Varış ' + saatYaz(a.istasyona_varis_zamani) : ''}</span>`;
-  return `<div class="aktif-satir">
+    : '';
+  const saatler = `<span class="aktif-saat">Başlama ${saatYaz(a.baslama_zamani)}${!yolda && a.istasyona_varis_zamani ? ' · Varış ' + saatYaz(a.istasyona_varis_zamani) : ''}</span>`;
+  const meta = [rolAd(a.personel?.rol), a.gorev_aciklamasi].filter(Boolean).map(esc).join(' · ');
+  return `<div class="aktif-satir${yolda ? '' : ' ist'}">
         <div class="aktif-avatar">${esc(bas)}</div>
         <div class="aktif-bilgi">
           <div class="aktif-isim">${esc(ad)}</div>
-          ${a.gorev_aciklamasi ? `<div class="aktif-gorev-metin">${esc(a.gorev_aciklamasi)}</div>` : ''}
-          <div class="aktif-alt">${rolRozet(a.personel?.rol)}${durumRozet}${saatler}</div>
+          <div class="aktif-meta">${meta}</div>
+          <div class="aktif-alt">${durumRozet}${saatler}</div>
         </div>
         ${sureGizle ? '' : `<span class="rozet r-yesil aktif-sure" data-baslama="${esc(a.baslama_zamani)}">${sureYaz(dk)}</span>`}
       </div>`;
@@ -279,7 +281,7 @@ async function panelYukle() {
 
   let aHtml = '';
   if (istasyondakiler.length > 0) {
-    aHtml = `<div class="aktif-liste">${istasyondakiler.map(a => aktifSatirHtml(a, 'istasyonda')).join('')}</div>`;
+    aHtml = `<div class="aktif-liste kompakt">${istasyondakiler.map(a => aktifSatirHtml(a, 'istasyonda')).join('')}</div>`;
   } else { aHtml = '<div class="bos">Şu an istasyonda icap görevli personel yok.</div>'; }
   document.getElementById('aktifIcapListe').innerHTML = aHtml;
 
