@@ -530,7 +530,9 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   if (['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol)) {
     let query = sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol, vardiya, kadro)').eq('durum', 'onay_bekliyor');
     if (rol === 'vardiya_cavusu') query = query.eq('vardiya', mevcutPersonel.vardiya);
-    const { data: bekleyenler } = await query;
+    let { data: bekleyenler } = await query;
+    // Vardiya çavuşu yalnızca Er/Şoför icaplarını onaylar; çavuş icaplarını (kendisininki dahil) Grup Amiri onaylar
+    if (rol === 'vardiya_cavusu') bekleyenler = (bekleyenler || []).filter(b => b.personel?.rol !== 'vardiya_cavusu');
     let bHtml = '';
     if (bekleyenler && bekleyenler.length > 0) {
       bekleyenSayi += bekleyenler.length;
@@ -892,7 +894,8 @@ async function icapBitir(id, manuelBitis = null) {
   const { data } = await sb.from('icap_gorevleri').select('baslama_zamani').eq('id', id).single();
   const dk = Math.floor((bitisAn - new Date(data.baslama_zamani)) / 60000);
   if (dk <= 0) return toast("Bitiş zamanı başlama zamanından sonra olmalı.");
-  const otomatikOnay = ['grup_amiri', 'vardiya_cavusu', 'super_admin'].includes(mevcutPersonel.rol);
+  // Er/Şoför icabını vardiya çavuşu, Vardiya Çavuşu icabını Grup Amiri onaylar; yalnız Grup Amiri/Süper Admin kendi icabı otomatik onaylanır
+  const otomatikOnay = ['grup_amiri', 'super_admin'].includes(mevcutPersonel.rol);
   const guncelle = { bitis_zamani: bitisAn.toISOString(), toplam_dakika: dk, durum: otomatikOnay ? 'onaylandi' : 'onay_bekliyor', onaylayan_id: otomatikOnay ? mevcutPersonel.id : null, onay_zamani: otomatikOnay ? new Date().toISOString() : null };
   
   let { error } = await sb.from('icap_gorevleri').update(guncelle).eq('id', id);
@@ -938,7 +941,6 @@ async function reddet(id, tip) {
 // Gün seçimi yalnızca bugün ve son MANUEL_GERI_GUN gün ile sınırlıdır.
 // ============================================================
 const MANUEL_GERI_GUN = 3;                // en fazla kaç gün öncesine manuel giriş yapılabilir (bugün dahil değil)
-const MANUEL_MAX_SURE_DK = 24 * 60;       // tek manuel icap en çok 24 saat
 
 function yerelTarih(d) {
   const p = n => String(n).padStart(2, '0');
@@ -988,7 +990,6 @@ function manuelOzetGuncelle() {
   const dk = Math.round((s - b) / 60000);
   if (dk <= 0) { el.className = 'manuel-ozet hata'; el.innerText = 'Bitiş, başlamadan sonra olmalı.'; return; }
   if (s > new Date()) { el.className = 'manuel-ozet hata'; el.innerText = 'Bitiş zamanı gelecekte olamaz.'; return; }
-  if (dk > MANUEL_MAX_SURE_DK) { el.className = 'manuel-ozet hata'; el.innerText = 'Tek icap en fazla 24 saat olabilir.'; return; }
   el.className = 'manuel-ozet tamam';
   el.innerText = `Toplam süre: ${dkYaz(dk)}`;
 }
@@ -999,7 +1000,6 @@ async function icapManuelKaydet() {
   const dk = Math.round((s - b) / 60000);
   if (dk <= 0) return toast("Bitiş zamanı başlamadan sonra olmalı.");
   if (s > new Date()) return toast("Bitiş zamanı gelecekte olamaz.");
-  if (dk > MANUEL_MAX_SURE_DK) return toast("Tek icap en fazla 24 saat olabilir.");
 
   // Kendi diğer icap kayıtlarıyla çakışma kontrolü
   const arama = new Date(b.getTime() - 48 * 3600 * 1000).toISOString();
@@ -1014,7 +1014,8 @@ async function icapManuelKaydet() {
   const bas = `${tarihYaz(b)} ${saatYaz(b)}`, bit = `${tarihYaz(s)} ${saatYaz(s)}`;
   if (!confirm(`Manuel icap kaydedilsin mi?\n\nBaşlama: ${bas}\nBitiş: ${bit}\nSüre: ${dkYaz(dk)}`)) return;
 
-  const otomatikOnay = ['grup_amiri', 'vardiya_cavusu', 'super_admin'].includes(mevcutPersonel.rol);
+  // Er/Şoför icabını vardiya çavuşu, Vardiya Çavuşu icabını Grup Amiri onaylar; yalnız Grup Amiri/Süper Admin kendi icabı otomatik onaylanır
+  const otomatikOnay = ['grup_amiri', 'super_admin'].includes(mevcutPersonel.rol);
   const { error } = await sb.from('icap_gorevleri').insert([{
     personel_id: mevcutPersonel.id,
     vardiya: mevcutPersonel.vardiya,
@@ -1041,7 +1042,6 @@ async function manuelBitisOzet(id) {
   const dk = Math.round((s - new Date(data.baslama_zamani)) / 60000);
   if (dk <= 0) { el.className = 'manuel-ozet hata'; el.innerText = 'Bitiş, başlamadan sonra olmalı.'; return; }
   if (s > new Date()) { el.className = 'manuel-ozet hata'; el.innerText = 'Bitiş zamanı gelecekte olamaz.'; return; }
-  if (dk > MANUEL_MAX_SURE_DK) { el.className = 'manuel-ozet hata'; el.innerText = 'Tek icap en fazla 24 saat olabilir.'; return; }
   el.className = 'manuel-ozet tamam'; el.innerText = `Toplam süre: ${dkYaz(dk)}`;
 }
 
@@ -1052,7 +1052,6 @@ async function icapBitirManuel(id) {
   const { data } = await sb.from('icap_gorevleri').select('baslama_zamani').eq('id', id).single();
   const dk = Math.round((s - new Date(data.baslama_zamani)) / 60000);
   if (dk <= 0) return toast("Bitiş zamanı başlamadan sonra olmalı.");
-  if (dk > MANUEL_MAX_SURE_DK) return toast("Tek icap en fazla 24 saat olabilir.");
   if (!confirm(`İcap şu zamanda bitirilsin mi?\n\nBitiş: ${tarihYaz(s)} ${saatYaz(s)}\nSüre: ${dkYaz(dk)}`)) return;
   await icapBitir(id, s);
 }
