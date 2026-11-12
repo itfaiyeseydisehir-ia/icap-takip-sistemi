@@ -320,7 +320,7 @@ async function panelYukle() {
       } else {
         rows += `<tr>
           <td><span class="rozet r-mor">İzin</span></td>
-          <td><div class="hucre-isim">${tarihYaz(x.data.izin_tarihi)}</div><div class="hucre-alt">${esc(x.data.aciklama || 'İzin kullanımı')}</div></td>
+          <td><div class="hucre-isim">${tarihYaz(x.data.izin_tarihi)}</div><div class="hucre-alt">${esc(x.data.aciklama || 'İzin kullanımı')}</div>${mevcutPersonel.kadro === 'memur' ? `<button type="button" class="cizelge-btn" onclick="izinCizelgeIndir('${x.data.id}')">📄 Mesai Çizelgesi (Excel)</button>` : ''}</td>
           <td class="sag eksi">-${isIsci(mevcutPersonel.kadro) ? gunYaz(x.data.talep_edilen_dakika / IZIN_GUN_DK) : dkYaz(x.data.talep_edilen_dakika)}</td></tr>`;
       }
     });
@@ -404,7 +404,19 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       kontrol = `<div class="zaman"${sayacStil} data-baslama="${esc(kendiAktif.baslama_zamani)}">00:00:00</div>
         ${banner}
         ${kendiVardi || !kolonVar ? '' : `<button type="button" class="icap-baslat" onclick="istasyondayim('${kendiAktif.id}')" style="margin-bottom:10px">📍 İSTASYONDAYIM</button>`}
-        <button type="button" class="icap-bitir" onclick="icapBitir('${kendiAktif.id}')">⏹ İCAP GÖREVİNİ BİTİR</button>`;
+        <button type="button" class="icap-bitir" onclick="icapBitir('${kendiAktif.id}')">⏹ İCAP GÖREVİNİ BİTİR</button>
+        <details class="manuel-kutu" id="mbDetay">
+          <summary>🕒 Bitiş saatini manuel gir <small>(bitirmeyi unuttum)</small></summary>
+          <div class="manuel-ic">
+            <div class="manuel-not">Başlama: ${esc(tarihYaz(kendiAktif.baslama_zamani))} ${esc(saatYaz(kendiAktif.baslama_zamani))}. Görevin gerçekte bittiği zamanı seçin.</div>
+            <div class="manuel-satir">
+              <select id="mbGun" onchange="manuelBitisOzet('${kendiAktif.id}')">${gunSecenekleriHtml(MANUEL_GERI_GUN)}</select>
+              <input type="time" id="mbSaat" step="60" onchange="manuelBitisOzet('${kendiAktif.id}')">
+            </div>
+            <div class="manuel-ozet" id="mbOzet">Bitiş saatini seçin.</div>
+            <button type="button" class="icap-bitir manuel-kaydet" onclick="icapBitirManuel('${kendiAktif.id}')">⏹ BU SAATTE BİTİR</button>
+          </div>
+        </details>`;
     }
     const baslik = sadeceKendim ? 'İcap Göreviniz Devam Ediyor' : 'İcap Görevi Başlatan Personel';
     const alt = sadeceKendim ? `İstasyondasınız · Başlama ${saatYaz(kendiAktif.baslama_zamani)}` : `${yoldakiler.length} personel yolda`;
@@ -450,6 +462,24 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       <div class="adim-etiket">AÇIKLAMA</div>
       <textarea id="gorevAciklama" rows="2" placeholder="Açıklama (isteğe bağlı) — örn: Mahalle, adres..." ${!baslatabilir ? 'disabled' : ''}></textarea>
       <button type="button" class="icap-baslat" onclick="icapBaslat()" ${!baslatabilir ? 'disabled' : ''}>▶ İCAP GÖREVİNİ BAŞLAT</button>
+      <details class="manuel-kutu" id="mnDetay">
+        <summary>🕒 Manuel İcap Girişi <small>(başlatmayı/bitirmeyi unuttum)</small></summary>
+        <div class="manuel-ic">
+          <div class="manuel-not">İcap başlatmayı veya bitirmeyi unuttuysanız, görevin gerçek başlama ve bitiş zamanını saat seçici ile girin. Kayıt onaya gider.</div>
+          <div class="adim-etiket">BAŞLAMA</div>
+          <div class="manuel-satir">
+            <select id="mnGunB" onchange="manuelOzetGuncelle()">${gunSecenekleriHtml(MANUEL_GERI_GUN)}</select>
+            <input type="time" id="mnSaatB" step="60" onchange="manuelOzetGuncelle()">
+          </div>
+          <div class="adim-etiket">BİTİŞ</div>
+          <div class="manuel-satir">
+            <select id="mnGunS" onchange="manuelOzetGuncelle()">${gunSecenekleriHtml(MANUEL_GERI_GUN)}</select>
+            <input type="time" id="mnSaatS" step="60" onchange="manuelOzetGuncelle()">
+          </div>
+          <div class="manuel-ozet" id="mnOzet">Başlama ve bitiş saatini seçin.</div>
+          <button type="button" class="icap-baslat manuel-kaydet" onclick="icapManuelKaydet()">✓ MANUEL İCABI KAYDET</button>
+        </div>
+      </details>
     </div>`;
   }
 
@@ -500,9 +530,11 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       bekleyenSayi += bekleyenler.length;
       bekleyenler.forEach(b => {
         let ekBilgi = '';
+        const aralik = b.bitis_zamani ? `${tarihYaz(b.baslama_zamani)} ${saatYaz(b.baslama_zamani)} → ${tarihYaz(b.bitis_zamani)} ${saatYaz(b.bitis_zamani)}` : '';
 
         bHtml += `<div class="onay-item">
-          <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">${esc(rolAd(b.personel.rol))} ${kadroRozet(b.personel.kadro)}</div></div>
+          <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">${esc(rolAd(b.personel.rol))} ${kadroRozet(b.personel.kadro)}</div>
+            ${aralik ? `<div class="hucre-alt" style="margin-top:4px">${esc(aralik)}</div>` : ''}${b.gorev_aciklamasi ? `<div class="hucre-alt">${esc(b.gorev_aciklamasi)}</div>` : ''}</div>
             <div style="text-align:right"><span class="rozet r-turuncu">${dkYaz(b.toplam_dakika)}</span>${ekBilgi}</div></div>
           <div class="onay-btnler"><button type="button" class="btn btn-success" onclick="onayla('${b.id}', 'icap')">✓ Onayla</button><button type="button" class="btn btn-danger" onclick="reddet('${b.id}', 'icap')">✕ Reddet</button></div></div>`;
       });
@@ -561,9 +593,11 @@ async function rolIcerikCiz(aktifler, hazirlar) {
   const grup = document.getElementById('icapGrup');
   if (b1 && grup) {
     // Sıra: 1) İcap Görevi Başlatan Personel  2) Aktif icap panosu  3) diğer kartlar (Yeni İcap Görevi vb.)
+    const _formDurum = formDurumKaydet();
     b1.innerHTML = baslatanHtml;
     if (gk) gk.innerHTML = gorevHtml;
-    if (baslatanHtml) grup.append(b1, pano, gk); else grup.append(gk, b1, pano);
+    formDurumYukle(_formDurum);
+    if (baslatanHtml) grup.append(b1, pano, gk); else grup.append(pano, gk, b1);
   } else if (gk) {
     gk.innerHTML = baslatanHtml + gorevHtml; // eski index.html ile de panel kaybolmasın
   }
@@ -639,6 +673,7 @@ function hizliIslemleriCiz(rol, bekleyenSayi) {
     ekle('a-turuncu', IKON.onay, 'İcap Onayları', "panelAc('onayIcapKart','Onay Bekleyen İcaplar')", icapSay);
     ekle('a-kehribar', IKON.izinOnay, 'İzin Onayları', "panelAc('onayIzinKart','Onay Bekleyen İzinler')", izinSay);
     ekle('a-pembe', IKON.rapor, 'Raporlar', 'raporModalAc()');
+    ekle('a-yesil', IKON.rapor, 'Memur Çizelgesi', 'cizelgeListeAc()');
   }
   ekle('a-lacivert', IKON.log, 'Sistem Hareketleri', "panelAc('logPenceresi','Sistem Hareketleri')");
   if (yonetici) ekle('a-petrol', IKON.yedek, 'Buluta Yedekle', 'veriYedekle()');
@@ -845,18 +880,20 @@ async function istasyondayim(id) {
   panelYukle();
 }
 
-async function icapBitir(id) {
-  if (!confirm("İcap görevini bitirmek istiyor musunuz?")) return;
+async function icapBitir(id, manuelBitis = null) {
+  if (!manuelBitis && !confirm("İcap görevini bitirmek istiyor musunuz?")) return;
+  const bitisAn = manuelBitis || new Date();
   const { data } = await sb.from('icap_gorevleri').select('baslama_zamani').eq('id', id).single();
-  const dk = Math.floor((new Date() - new Date(data.baslama_zamani)) / 60000);
+  const dk = Math.floor((bitisAn - new Date(data.baslama_zamani)) / 60000);
+  if (dk <= 0) return toast("Bitiş zamanı başlama zamanından sonra olmalı.");
   const otomatikOnay = ['grup_amiri', 'vardiya_cavusu', 'super_admin'].includes(mevcutPersonel.rol);
-  const guncelle = { bitis_zamani: new Date().toISOString(), toplam_dakika: dk, durum: otomatikOnay ? 'onaylandi' : 'onay_bekliyor', onaylayan_id: otomatikOnay ? mevcutPersonel.id : null, onay_zamani: otomatikOnay ? new Date().toISOString() : null };
+  const guncelle = { bitis_zamani: bitisAn.toISOString(), toplam_dakika: dk, durum: otomatikOnay ? 'onaylandi' : 'onay_bekliyor', onaylayan_id: otomatikOnay ? mevcutPersonel.id : null, onay_zamani: otomatikOnay ? new Date().toISOString() : null };
   
   let { error } = await sb.from('icap_gorevleri').update(guncelle).eq('id', id);
   if (error) toast("Hata: " + error.message);
   else { 
     toast("İcap bitirildi", "basari"); 
-    await logEkle("İcabı Bitirdi", `Süre: ${dk} dk`); 
+    await logEkle(manuelBitis ? "İcabı Manuel Bitirdi" : "İcabı Bitirdi", `Süre: ${dk} dk${manuelBitis ? ' · Bitiş: ' + manuelBitis.toLocaleString('tr-TR') : ''}`); 
     widgetKapat();
     panelYukle(); 
   }
@@ -888,6 +925,273 @@ async function reddet(id, tip) {
 }
 
 // ---------- MODALLAR ----------
+
+// ============================================================
+// MANUEL İCAP GİRİŞİ (başlatmayı / bitirmeyi unutanlar için)
+// Saat girişi telefonun saat seçicisiyle (alarm kurar gibi) yapılır; elle yazılan hatalı format olmaz.
+// Gün seçimi yalnızca bugün ve son MANUEL_GERI_GUN gün ile sınırlıdır.
+// ============================================================
+const MANUEL_GERI_GUN = 3;                // en fazla kaç gün öncesine manuel giriş yapılabilir (bugün dahil değil)
+const MANUEL_MAX_SURE_DK = 24 * 60;       // tek manuel icap en çok 24 saat
+
+function yerelTarih(d) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function gunSecenekleriHtml(geriGun) {
+  const adlar = ['Bugün', 'Dün', '2 gün önce', '3 gün önce', '4 gün önce'];
+  let o = '';
+  for (let i = 0; i <= geriGun; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    o += `<option value="${yerelTarih(d)}">${adlar[i] || i + ' gün önce'} · ${d.toLocaleDateString('tr-TR')}</option>`;
+  }
+  return o;
+}
+function tarihSaatOku(gunId, saatId) {
+  const g = document.getElementById(gunId)?.value, s = document.getElementById(saatId)?.value;
+  if (!g || !s || !/^\d{2}:\d{2}$/.test(s)) return null;
+  const d = new Date(`${g}T${s}:00`);
+  return isNaN(d) ? null : d;
+}
+
+// Panel yeniden çizilirken (canlı güncelleme) yarım kalan form bozulmasın
+const FORM_ALANLARI = ['mnGunB', 'mnSaatB', 'mnGunS', 'mnSaatS', 'mbGun', 'mbSaat', 'gorevAciklama'];
+const FORM_DETAYLARI = ['mnDetay', 'mbDetay'];
+function formDurumKaydet() {
+  const o = { alan: {}, acik: {} };
+  FORM_ALANLARI.forEach(id => { const e = document.getElementById(id); if (e) o.alan[id] = e.value; });
+  FORM_DETAYLARI.forEach(id => { const e = document.getElementById(id); if (e) o.acik[id] = e.open; });
+  return o;
+}
+function formDurumYukle(o) {
+  if (!o) return;
+  FORM_ALANLARI.forEach(id => { const e = document.getElementById(id); if (e && o.alan[id] !== undefined) e.value = o.alan[id]; });
+  FORM_DETAYLARI.forEach(id => { const e = document.getElementById(id); if (e && o.acik[id]) e.open = true; });
+  if (document.getElementById('mnOzet')) manuelOzetGuncelle();
+}
+
+function manuelOzetGuncelle() {
+  const b = tarihSaatOku('mnGunB', 'mnSaatB'), s = tarihSaatOku('mnGunS', 'mnSaatS');
+  const el = document.getElementById('mnOzet');
+  if (!el) return;
+  if (!b || !s) { el.className = 'manuel-ozet'; el.innerText = 'Başlama ve bitiş saatini seçin.'; return; }
+  const dk = Math.round((s - b) / 60000);
+  if (dk <= 0) { el.className = 'manuel-ozet hata'; el.innerText = 'Bitiş, başlamadan sonra olmalı.'; return; }
+  if (s > new Date()) { el.className = 'manuel-ozet hata'; el.innerText = 'Bitiş zamanı gelecekte olamaz.'; return; }
+  if (dk > MANUEL_MAX_SURE_DK) { el.className = 'manuel-ozet hata'; el.innerText = 'Tek icap en fazla 24 saat olabilir.'; return; }
+  el.className = 'manuel-ozet tamam';
+  el.innerText = `Toplam süre: ${dkYaz(dk)}`;
+}
+
+async function icapManuelKaydet() {
+  const b = tarihSaatOku('mnGunB', 'mnSaatB'), s = tarihSaatOku('mnGunS', 'mnSaatS');
+  if (!b || !s) return toast("Başlama ve bitiş saatini seçin.");
+  const dk = Math.round((s - b) / 60000);
+  if (dk <= 0) return toast("Bitiş zamanı başlamadan sonra olmalı.");
+  if (s > new Date()) return toast("Bitiş zamanı gelecekte olamaz.");
+  if (dk > MANUEL_MAX_SURE_DK) return toast("Tek icap en fazla 24 saat olabilir.");
+
+  // Kendi diğer icap kayıtlarıyla çakışma kontrolü
+  const arama = new Date(b.getTime() - 48 * 3600 * 1000).toISOString();
+  const { data: mevcut } = await sb.from('icap_gorevleri').select('baslama_zamani, bitis_zamani, durum').eq('personel_id', mevcutPersonel.id).in('durum', ['aktif', 'onay_bekliyor', 'onaylandi']).gte('baslama_zamani', arama);
+  const cakisan = (mevcut || []).find(k => {
+    const k1 = new Date(k.baslama_zamani), k2 = k.bitis_zamani ? new Date(k.bitis_zamani) : new Date(8640000000000000);
+    return b < k2 && s > k1;
+  });
+  if (cakisan) return toast("Bu saat aralığı mevcut bir icap kaydınızla çakışıyor.");
+
+  const aciklama = (document.getElementById('gorevAciklama')?.value || '').trim();
+  const bas = `${tarihYaz(b)} ${saatYaz(b)}`, bit = `${tarihYaz(s)} ${saatYaz(s)}`;
+  if (!confirm(`Manuel icap kaydedilsin mi?\n\nBaşlama: ${bas}\nBitiş: ${bit}\nSüre: ${dkYaz(dk)}`)) return;
+
+  const otomatikOnay = ['grup_amiri', 'vardiya_cavusu', 'super_admin'].includes(mevcutPersonel.rol);
+  const { error } = await sb.from('icap_gorevleri').insert([{
+    personel_id: mevcutPersonel.id,
+    vardiya: mevcutPersonel.vardiya,
+    gorev_aciklamasi: '[MANUEL] ' + aciklama,
+    baslama_zamani: b.toISOString(),
+    bitis_zamani: s.toISOString(),
+    toplam_dakika: dk,
+    durum: otomatikOnay ? 'onaylandi' : 'onay_bekliyor',
+    onaylayan_id: otomatikOnay ? mevcutPersonel.id : null,
+    onay_zamani: otomatikOnay ? new Date().toISOString() : null
+  }]);
+  if (error) return toast("Manuel icap kaydedilemedi: " + error.message);
+
+  toast(otomatikOnay ? "Manuel icap kaydedildi." : "Manuel icap onaya gönderildi.", "basari");
+  await logEkle("Manuel İcap Girdi", `${bas} → ${bit} (${dkYaz(dk)})`);
+  panelYukle();
+}
+
+async function manuelBitisOzet(id) {
+  const el = document.getElementById('mbOzet'); if (!el) return;
+  const s = tarihSaatOku('mbGun', 'mbSaat');
+  if (!s) { el.className = 'manuel-ozet'; el.innerText = 'Bitiş saatini seçin.'; return; }
+  const { data } = await sb.from('icap_gorevleri').select('baslama_zamani').eq('id', id).single();
+  const dk = Math.round((s - new Date(data.baslama_zamani)) / 60000);
+  if (dk <= 0) { el.className = 'manuel-ozet hata'; el.innerText = 'Bitiş, başlamadan sonra olmalı.'; return; }
+  if (s > new Date()) { el.className = 'manuel-ozet hata'; el.innerText = 'Bitiş zamanı gelecekte olamaz.'; return; }
+  if (dk > MANUEL_MAX_SURE_DK) { el.className = 'manuel-ozet hata'; el.innerText = 'Tek icap en fazla 24 saat olabilir.'; return; }
+  el.className = 'manuel-ozet tamam'; el.innerText = `Toplam süre: ${dkYaz(dk)}`;
+}
+
+async function icapBitirManuel(id) {
+  const s = tarihSaatOku('mbGun', 'mbSaat');
+  if (!s) return toast("Bitiş saatini seçin.");
+  if (s > new Date()) return toast("Bitiş zamanı gelecekte olamaz.");
+  const { data } = await sb.from('icap_gorevleri').select('baslama_zamani').eq('id', id).single();
+  const dk = Math.round((s - new Date(data.baslama_zamani)) / 60000);
+  if (dk <= 0) return toast("Bitiş zamanı başlamadan sonra olmalı.");
+  if (dk > MANUEL_MAX_SURE_DK) return toast("Tek icap en fazla 24 saat olabilir.");
+  if (!confirm(`İcap şu zamanda bitirilsin mi?\n\nBitiş: ${tarihYaz(s)} ${saatYaz(s)}\nSüre: ${dkYaz(dk)}`)) return;
+  await icapBitir(id, s);
+}
+
+// ============================================================
+// MEMUR FAZLA ÇALIŞMA MESAİ CETVELİ (Excel)
+// Onaylı memur izin talebini karşılayan icap kayıtları (eskiden yeniye, FIFO) şablona otomatik doldurulur.
+// ============================================================
+const CETVEL_BIRIM = 'İTFAİYE DAİRE BAŞKANLIĞI';
+const CETVEL_NEDEN = 'VARDİYA TATİLİNDE  ÇALIŞMA';
+const CETVEL_SAYFA_SATIR = 8;
+
+function cetvelSureYaz(dk) {
+  const s = Math.floor(dk / 60), m = dk % 60;
+  if (s && m) return `${s} SAAT ${m} DAKİKA`;
+  return s ? `${s} SAAT` : `${m} DAKİKA`;
+}
+
+function exceljsYukle() {
+  if (window.ExcelJS) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+    sc.onload = res; sc.onerror = () => rej(new Error('Excel kütüphanesi yüklenemedi (internet bağlantısını kontrol edin).'));
+    document.head.appendChild(sc);
+  });
+}
+
+// Seçilen izin talebini karşılayan icap parçalarını bulur
+async function cetvelParcalari(personelId, izinId) {
+  const [{ data: icaps }, { data: izins }] = await Promise.all([
+    sb.from('icap_gorevleri').select('*').eq('personel_id', personelId).eq('durum', 'onaylandi').order('baslama_zamani', { ascending: true }),
+    sb.from('icap_izin_talepleri').select('*').eq('personel_id', personelId).eq('durum', 'onaylandi').order('izin_tarihi', { ascending: true }).order('onay_zamani', { ascending: true })
+  ]);
+  const kayitlar = (icaps || []).filter(k => (k.toplam_dakika || 0) > 0).map(k => ({ bas: new Date(k.baslama_zamani), kalan: k.toplam_dakika, kullanilan: 0 }));
+  let idx = 0, secili = [];
+  for (const iz of (izins || [])) {
+    let ihtiyac = iz.talep_edilen_dakika || 0;
+    while (ihtiyac > 0 && idx < kayitlar.length) {
+      const k = kayitlar[idx];
+      const al = Math.min(k.kalan, ihtiyac);
+      if (iz.id === izinId) secili.push({ baslangic: new Date(k.bas.getTime() + k.kullanilan * 60000), dk: al });
+      k.kullanilan += al; k.kalan -= al; ihtiyac -= al;
+      if (k.kalan <= 0) idx++;
+    }
+    if (iz.id === izinId) return { parcalar: secili, eksik: ihtiyac, izin: iz };
+  }
+  return null;
+}
+
+function cetvelSayfaYaz(wb, ad, satirlar, baslaNo, tanzim, kisi) {
+  const ws = wb.addWorksheet(ad, { pageSetup: { orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 1, margins: { left: 0.7, right: 0.7, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 } } });
+  const gen = [6.14, 8.29, 12.57, 22, 23.14, 16.29, 18.57, 13.29, 17.71, 19.71];
+  gen.forEach((w, i) => ws.getColumn(i + 1).width = w);
+  const T = 'Times New Roman', C = 'Calibri';
+  const med = { style: 'medium' }, thin = { style: 'thin' };
+  const tamKenar = (st) => ({ left: st, right: st, top: st, bottom: st });
+
+  ws.mergeCells('A1:I1');
+  const a1 = ws.getCell('A1'); a1.value = 'FAZLA ÇALIŞMA MESAİ CETVELİ';
+  a1.font = { name: T, size: 12, bold: true }; a1.alignment = { horizontal: 'center', vertical: 'middle' }; a1.border = tamKenar(med);
+  const j1 = ws.getCell('J1'); j1.value = 'TANZİM TARİH ' + tanzim;
+  j1.font = { name: T, size: 12, bold: true }; j1.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; j1.border = tamKenar(med);
+  ws.getRow(1).height = 31.95;
+
+  ['SIRA NO', 'SİCİL NO', 'TARİH', 'AD SOYAD', 'BİRİMİ', 'MESAİ NEDENİ', 'BAŞLAMA SAATİ', 'BİTİŞ SAATİ', 'TOPLAM (SAAT)', 'İMZA'].forEach((t, i) => {
+    const c = ws.getCell(2, i + 1); c.value = t;
+    c.font = { name: T, size: 12 }; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; c.border = tamKenar(med);
+  });
+  ws.getRow(2).height = 36;
+
+  for (let i = 0; i < CETVEL_SAYFA_SATIR; i++) {
+    const r = 3 + i, s = satirlar[i];
+    ws.getRow(r).height = 43.2;
+    const deger = [baslaNo + i, s ? kisi.sicil : null, s ? s.tarih : null, s ? kisi.ad : null, CETVEL_BIRIM, CETVEL_NEDEN, s ? s.bas : null, s ? s.bit : null, s ? s.toplam : null, null];
+    deger.forEach((v, k) => {
+      const c = ws.getCell(r, k + 1); c.value = v;
+      c.font = { name: C, size: k === 0 ? 12 : 11, bold: k === 0 };
+      c.alignment = { horizontal: k === 4 ? undefined : 'center', vertical: 'middle', wrapText: k === 5 };
+      c.border = { left: k === 0 ? med : thin, right: k === 9 ? med : thin, top: thin, bottom: i === CETVEL_SAYFA_SATIR - 1 ? med : thin };
+      if (k === 6 || k === 7) c.numFmt = 'h:mm';
+    });
+  }
+
+  [['C', 'D', 'KOORDİNASYON AMİRİ'], ['F', 'G', 'ŞUBE MÜDÜRÜ'], ['I', 'J', 'İTFAİYE DAİRESİ BAŞKANI']].forEach(([k1, k2, unvan]) => {
+    [[13, unvan], [14, 'Kaşe '], [15, 'İmza']].forEach(([r, t]) => {
+      ws.mergeCells(`${k1}${r}:${k2}${r}`);
+      const c = ws.getCell(`${k1}${r}`); c.value = t; c.font = { name: C, size: 11 }; c.alignment = { horizontal: 'center' };
+    });
+  });
+  ws.pageSetup.printArea = 'A1:J17';
+  return ws;
+}
+
+async function izinCizelgeIndir(izinId) {
+  try {
+    toast("Çizelge hazırlanıyor...", "basari");
+    await exceljsYukle();
+    const { data: iz, error } = await sb.from('icap_izin_talepleri').select('*, personel:personel_id(ad_soyad, sicil_no, kadro)').eq('id', izinId).single();
+    if (error || !iz) return toast("İzin kaydı okunamadı.");
+    if (iz.durum !== 'onaylandi') return toast("Çizelge yalnızca onaylanmış izinler için alınabilir.");
+    if (iz.personel.kadro !== 'memur') return toast("Bu çizelge yalnızca memur personel içindir.");
+
+    const sonuc = await cetvelParcalari(iz.personel_id, izinId);
+    if (!sonuc || sonuc.parcalar.length === 0) return toast("Bu izni karşılayan icap kaydı bulunamadı.");
+
+    const satirlar = sonuc.parcalar.map(p => {
+      const bitis = new Date(p.baslangic.getTime() + p.dk * 60000);
+      const dkOf = d => (d.getHours() * 60 + d.getMinutes()) / 1440;
+      return {
+        tarih: p.baslangic.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+        bas: dkOf(p.baslangic), bit: dkOf(bitis), toplam: cetvelSureYaz(p.dk)
+      };
+    });
+    const kisi = { ad: (iz.personel.ad_soyad || '').toLocaleUpperCase('tr-TR'), sicil: iz.personel.sicil_no ? (isNaN(iz.personel.sicil_no) ? iz.personel.sicil_no : Number(iz.personel.sicil_no)) : null };
+    const tanzim = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\./g, '/');
+
+    const wb = new ExcelJS.Workbook();
+    const sayfaSayisi = Math.ceil(satirlar.length / CETVEL_SAYFA_SATIR);
+    for (let s = 0; s < sayfaSayisi; s++) {
+      cetvelSayfaYaz(wb, `Sayfa${s + 1}`, satirlar.slice(s * CETVEL_SAYFA_SATIR, (s + 1) * CETVEL_SAYFA_SATIR), s * CETVEL_SAYFA_SATIR + 1, tanzim, kisi);
+    }
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const dosyaAd = `FAZLA_MESAI_CETVELI_${kisi.ad.replace(/[^A-Z0-9ÇĞİÖŞÜ]+/g, '_')}_${iz.izin_tarihi}.xlsx`;
+    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = dosyaAd; link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+
+    if (!iz.personel.sicil_no) toast("Çizelge indirildi. Sicil no tanımlı değil: yönetici panelinden girilmeli.", "basari");
+    else if (sonuc.eksik > 0) toast(`İndirildi. Uyarı: izin ${dkYaz(sonuc.eksik)} fazla (icap karşılığı yok).`, "basari");
+    else toast("Fazla mesai çizelgesi indirildi.", "basari");
+    await logEkle("Mesai Çizelgesi İndirdi", `${iz.personel.ad_soyad} · ${iz.izin_tarihi}`);
+  } catch (e) { toast("Çizelge oluşturulamadı: " + e.message); }
+}
+
+// Yöneticiler için: onaylı memur izinlerinin listesi
+async function cizelgeListeAc() {
+  if (document.getElementById('cizelgeModal')) return;
+  const { data } = await sb.from('icap_izin_talepleri').select('*, personel:personel_id(ad_soyad, kadro)').eq('durum', 'onaylandi').order('izin_tarihi', { ascending: false }).limit(150);
+  const liste = (data || []).filter(x => x.personel?.kadro === 'memur');
+  const satirlar = liste.length ? liste.map(x => `<div class="onay-item" style="border-left-color:var(--blue)">
+      <div class="onay-ust"><div><div class="hucre-isim">${esc(x.personel.ad_soyad)}</div><div class="hucre-alt">İzin tarihi: ${esc(tarihYaz(x.izin_tarihi + 'T00:00:00'))} · ${dkYaz(x.talep_edilen_dakika)}</div></div></div>
+      <div class="onay-btnler"><button type="button" class="btn btn-success" onclick="izinCizelgeIndir('${x.id}')">📄 Excel Çizelge İndir</button></div></div>`).join('')
+    : '<div class="bos">Onaylanmış memur izni yok.</div>';
+  document.body.insertAdjacentHTML('beforeend', `<div class="modal aktif" id="cizelgeModal"><div class="modal-content">
+    <h3>📄 Memur Fazla Mesai Çizelgeleri</h3>${satirlar}
+    <button type="button" class="btn btn-link" onclick="document.getElementById('cizelgeModal').remove()">Kapat</button></div></div>`);
+}
+
 async function izinModalAc() {
   const kid = mevcutPersonel.id;
   const [{ data: icaps }, { data: izins }, { data: bekleyen }] = await Promise.all([
@@ -1167,6 +1471,7 @@ async function adminTab(tab) {
               <option value="3">3. Vardiya</option>
             </select>
           </div>
+          <div class="form-grup"><label>Sicil No (memur çizelgesi için)</label><input type="text" id="addSicil" inputmode="numeric" placeholder="Örn: 4143"></div>
           <div class="form-grup"><label>Kadro (Hak Çarpanı)</label>
             <select id="addKadro">
               <option value="isci">İşçi (Şirket Personeli)</option>
@@ -1190,7 +1495,7 @@ async function adminTab(tab) {
 
       <div class="tbl-wrap">
         <table class="tbl">
-          <thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Rol / Nitelik</th><th>Kadro</th><th>Vardiya</th><th>Durum</th><th class="sag">Sil</th></tr></thead>
+          <thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Rol / Nitelik</th><th>Kadro</th><th>Sicil No</th><th>Vardiya</th><th>Durum</th><th class="sag">Sil</th></tr></thead>
           <tbody id="adminPersonelTbody"></tbody>
         </table>
       </div>`;
@@ -1233,7 +1538,7 @@ function filtrelePersonelListesi(secim) {
 
   let rows = '';
   if (filtrelenmisListe.length === 0) {
-    rows = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#8d97a5;">Bu vardiyada kayıtlı personel bulunamadı.</td></tr>';
+    rows = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#8d97a5;">Bu vardiyada kayıtlı personel bulunamadı.</td></tr>';
   } else {
     filtrelenmisListe.forEach(p => {
       const vardiyaAd = p.vardiya ? p.vardiya + ". Vardiya" : "Gündüz";
@@ -1250,6 +1555,7 @@ function filtrelePersonelListesi(secim) {
         <td>${esc(p.email)}</td>
         <td>${rolRozet(p.rol)} <br><small style="color:#666">${nitelikAd}</small></td>
         <td>${kadroSec}</td>
+        <td><input type="text" class="sicil-input" value="${esc(p.sicil_no || '')}" inputmode="numeric" placeholder="Sicil" onchange="personelSicilKaydet('${p.id}', this.value)"></td>
         <td>${vardiyaAd}</td>
         <td>${durum}</td>
         <td class="sag"><button type="button" class="sil-btn" onclick="personelSil('${p.id}')" title="Sil">🗑️</button></td>
@@ -1276,7 +1582,8 @@ async function personelEkle() {
     rol: rol, 
     nitelik: nitelik, 
     vardiya: vardiya ? parseInt(vardiya) : null,
-    kadro: kadro
+    kadro: kadro,
+    sicil_no: (document.getElementById('addSicil')?.value || '').trim() || null
   }]);
   
   if (error) toast("Hata: " + error.message);
@@ -1295,6 +1602,14 @@ async function personelKadroDegistir(id, kadro) {
   toast("Kadro güncellendi.", "basari");
   await logEkle("Kadro Değiştirdi", `${p?.ad_soyad || ''}: ${kadroAd(kadro)}`);
   yenile();
+}
+
+async function personelSicilKaydet(id, deger) {
+  const sicil = (deger || '').trim() || null;
+  const { error } = await sb.from('personel').update({ sicil_no: sicil }).eq('id', id);
+  if (error) return toast("Sicil kaydedilemedi (sicil_no sütunu eklenmiş mi?): " + error.message);
+  const p = (window._adminPersonelListesi || []).find(x => x.id === id); if (p) p.sicil_no = sicil;
+  toast("Sicil no güncellendi.", "basari");
 }
 
 async function personelSil(id) {
