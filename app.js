@@ -97,7 +97,13 @@ function icapGunKatki(dk) { return (dk || 0) * 3 / TAM_GUN_ICAP_DK; } // tek ica
 
 // Dönüş: işçi → { isci:true, toplamDk, kullanilanDk, hakGun, hakDk, kalanDk, tamGun, sonrakiTamGunDk, ilerleme }
 //        memur → { isci:false, toplamDk, kullanilanDk, kalanDk }
-function bakiyeHesapla(icaplar, izinler, kadro) {
+// İcap bakiyeleri YILLIK'tır: her yıl 1 Ocak'ta sıfırlanır, bir sonraki yıla devretmez.
+// Bir icap, BAŞLADIĞI yıla; bir izin, İZİN TARİHİNİN yılına sayılır.
+const bakiyeYili = () => new Date().getFullYear();
+const yilOf = z => (typeof z === 'string' && /^\d{4}-/.test(z)) ? parseInt(z.slice(0, 4), 10) : new Date(z).getFullYear();
+function bakiyeHesapla(icaplar, izinler, kadro, yil = bakiyeYili()) {
+  icaplar = (icaplar || []).filter(k => yilOf(k.baslama_zamani) === yil);
+  izinler = (izinler || []).filter(x => yilOf(x.izin_tarihi) === yil);
   const toplamDk = (icaplar || []).reduce((s, k) => s + (k.toplam_dakika || 0), 0);
   const kullanilanDk = (izinler || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0);
   if (isIsci(kadro) || MEMUR_DA_FORMUL) {
@@ -149,7 +155,7 @@ function bakiyeDokumHtml(b, kadro, kompakt = false) {
         <div style="font-size:18px;font-weight:800;color:#6b4708">${dkYaz(sonrakiTamGunDk)}</div></div></div>
     </div>` : ''}
     <div style="margin-top:10px"><span class="rozet r-mavi">${MEMUR_DA_FORMUL ? 'İşçi / Memur' : kadroAd(kadro)}</span></div>
-    ${aciklama(hesapMetin)}${uyari}`;
+    ${aciklama(hesapMetin + `<br><br>İcap bakiyeleri <b>her yıl 1 Ocak'ta sıfırlanır</b>, bir sonraki yıla devretmez. (Şu an: ${bakiyeYili()} yılı bakiyesi)`)}${uyari}`;
 }
 
 function toast(msg, tip = 'hata') {
@@ -170,7 +176,7 @@ async function logEkle(islem, aciklama = "") {
       islem: islem,
       aciklama: aciklama
     }]);
-    if (error) console.error("Log Eklenemedi:", error.message);
+    if (error) { console.error("Log Eklenemedi:", error.message); if (!window.__logUyarildi) { window.__logUyarildi = true; toast("Sistem hareketi kaydedilemedi: " + error.message); } }
   } catch (e) { console.error("Log Hatası:", e); }
 }
 
@@ -368,8 +374,9 @@ async function panelYukle() {
 
   let logHtml = '';
   try {
-    const { data: loglar } = await sb.from('log_kayitlari').select('*').order('ne_zaman', { ascending: false }).limit(10);
-    if (loglar && loglar.length > 0) {
+    const { data: loglar, error: logHata } = await sb.from('log_kayitlari').select('*').order('ne_zaman', { ascending: false }).limit(10);
+    if (logHata) { console.error('Log okunamadı:', logHata.message); logHtml = `<div class="bos">Loglar okunamadı: ${esc(logHata.message)}</div>`; }
+    else if (loglar && loglar.length > 0) {
       loglar.forEach(l => {
         logHtml += `<div class="log-item"><div class="log-nokta"></div><div>
           <div><strong>${esc(l.ad_soyad_snapshot)}</strong> · <span class="log-islem">${esc(l.islem)}</span></div>
@@ -571,7 +578,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       for (const b of izinler) {
         const { data: pIcaps } = await sb.from('icap_gorevleri').select('*').eq('personel_id', b.personel_id).eq('durum', 'onaylandi');
         const { data: pIzins } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', b.personel_id).eq('durum', 'onaylandi');
-        const pBakiye = bakiyeHesapla(pIcaps, pIzins, b.personel.kadro);
+        const pBakiye = bakiyeHesapla(pIcaps, pIzins, b.personel.kadro, yilOf(b.izin_tarihi));
         
         const isciMi = izinGunluk(b.personel.kadro);
         const talepMetin = isciMi ? `${gunYaz(b.talep_edilen_dakika / IZIN_GUN_DK)} (${dkYaz(b.talep_edilen_dakika)})` : dkYaz(b.talep_edilen_dakika);
@@ -585,13 +592,14 @@ async function rolIcerikCiz(aktifler, hazirlar) {
           <div class="onay-ust">
             <div>
               <div class="hucre-isim">${esc(b.personel.ad_soyad)}</div>
-              <div class="hucre-alt">Tarih: ${esc(b.izin_tarihi)} ${kadroRozet(b.personel.kadro)} ${b.eksi_bakiye_mi ? '<span class="rozet r-kirmizi">Eksi Bakiye</span>' : ''}</div>
+              <div class="hucre-alt">Tarih: ${esc(izinAraligiYazi(b.izin_tarihi, b.talep_edilen_dakika))} ${kadroRozet(b.personel.kadro)} ${b.eksi_bakiye_mi ? '<span class="rozet r-kirmizi">Eksi Bakiye</span>' : ''}</div>
             </div>
             <span class="rozet r-mor">Talep: ${talepMetin}</span>
           </div>
           
+          ${b.aciklama && String(b.aciklama).trim() ? `<div style="margin-top:10px;padding:9px 12px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;font-size:13px;line-height:1.45;color:#3b2a74"><b>💬 Açıklama:</b> ${esc(b.aciklama)}</div>` : ''}
           <div style="margin-top:10px; font-size:12px;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
                <span>Mevcut hak:</span> <b>${mevcutMetin}</b>
             </div>
             <div class="dokum-satir sonra ${sonraEksi ? 'eksi' : ''}"><span>Onaylanırsa kalan:</span><b>${sonraMetin}</b></div>
@@ -1098,9 +1106,11 @@ async function cetvelParcalari(personelId, izinId) {
     sb.from('icap_gorevleri').select('*').eq('personel_id', personelId).eq('durum', 'onaylandi').order('baslama_zamani', { ascending: true }),
     sb.from('icap_izin_talepleri').select('*').eq('personel_id', personelId).eq('durum', 'onaylandi').order('izin_tarihi', { ascending: true }).order('onay_zamani', { ascending: true })
   ]);
-  const kayitlar = (icaps || []).filter(k => (k.toplam_dakika || 0) > 0).map(k => ({ bas: new Date(k.baslama_zamani), kalan: k.toplam_dakika, kullanilan: 0 }));
+  const hedefIzin = (izins || []).find(x => x.id === izinId);
+  const yil = hedefIzin ? yilOf(hedefIzin.izin_tarihi) : bakiyeYili();   // bakiye yıllık: yalnız aynı yılın icapları karşılar
+  const kayitlar = (icaps || []).filter(k => yilOf(k.baslama_zamani) === yil && (k.toplam_dakika || 0) > 0).map(k => ({ bas: new Date(k.baslama_zamani), kalan: k.toplam_dakika, kullanilan: 0 }));
   let idx = 0, secili = [];
-  for (const iz of (izins || [])) {
+  for (const iz of (izins || []).filter(x => yilOf(x.izin_tarihi) === yil)) {
     let ihtiyac = iz.talep_edilen_dakika || 0;
     while (ihtiyac > 0 && idx < kayitlar.length) {
       const k = kayitlar[idx];
@@ -1221,7 +1231,7 @@ async function izinModalAc() {
     sb.from('icap_izin_talepleri').select('*').eq('personel_id', kid).eq('durum', 'onay_bekliyor')
   ]);
   const bakiye = bakiyeHesapla(icaps, izins, mevcutPersonel.kadro);
-  const bekleyenDk = (bekleyen || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0);
+  const bekleyenDk = (bekleyen || []).filter(x => yilOf(x.izin_tarihi) === bakiyeYili()).reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0);
   // Onay bekleyen talepler de düşülür: aynı hakla iki kez izin istenemesin
   anlikKalanBakiye = bakiye.kalanDk - bekleyenDk;
   const isci = izinGunluk(mevcutPersonel.kadro);
@@ -1249,7 +1259,7 @@ async function izinModalAc() {
     <div class="uyari" style="margin-bottom:12px; background:#e8f0fa; color:var(--blue); border-color:#cfe0f3;">
       ℹ️ <span>Talebiniz yetkili amire onay için iletilecektir.</span>
     </div>
-    <div class="form-grup"><label>Tarih</label><input type="date" id="izinTarih" value="${new Date().toISOString().split('T')[0]}" onchange="izinHesapGuncelle()"></div>
+    <div class="form-grup"><label>Tarih</label><input type="date" id="izinTarih" value="${new Date().toISOString().split('T')[0]}" min="${bakiyeYili()}-01-01" max="${bakiyeYili()}-12-31" onchange="izinHesapGuncelle()"></div>
     <div class="izin-cakisma" id="izinCakisma" style="display:none"></div>
     <div class="form-grup"><label>Açıklama</label><input type="text" id="izinAciklama" placeholder="İzin Açıklaması?"></div>
     <button type="button" class="btn btn-mor" onclick="izinTalepEt()">✓ Talebi Gönder</button>
@@ -1273,6 +1283,7 @@ function izinTalepDakika() {
 // ---------- İZİN ÇAKIŞMA KONTROLÜ (aynı vardiya personeli) ----------
 const gunEkle = (tarih, n) => { const d = new Date(tarih + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const tarihTR = t => String(t).split('-').reverse().join('.');
+function izinAraligiYazi(tarih, dk) { const [c1, c2] = izinAraligi(tarih, dk); return c1 === c2 ? tarihTR(c1) : tarihTR(c1) + ' → ' + tarihTR(c2); }
 function izinAraligi(tarih, dk) { const gun = Math.max(1, Math.ceil((dk || 0) / IZIN_GUN_DK)); return [tarih, gunEkle(tarih, gun - 1)]; }
 // Aynı vardiyadaki diğer personelin (onaylı veya onay bekleyen) izinleriyle tarih çakışması
 async function izinCakismalariGetir(personelId, vardiya, tarih, dk, haricId = null) {
@@ -1317,6 +1328,8 @@ async function izinTalepEt() {
   if (toplamDk <= 0) return toast(isci ? "En az 1 gün girin." : "Geçerli süre girin.");
   const tarih = document.getElementById('izinTarih').value;
   if (!tarih) return toast("Tarih seçin.");
+  if (yilOf(tarih) !== bakiyeYili() || yilOf(izinAraligi(tarih, toplamDk)[1]) !== bakiyeYili())
+    return toast(`İcap bakiyeleri her yıl 1 Ocak'ta sıfırlanır. İzin tarihleri ${bakiyeYili()} yılı içinde olmalıdır.`);
   const eksiMi = (anlikKalanBakiye - toplamDk) < 0;
 
   const cakisanlar = await izinCakismalariGetir(mevcutPersonel.id, mevcutPersonel.vardiya, tarih, toplamDk);
