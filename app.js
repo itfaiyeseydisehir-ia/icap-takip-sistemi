@@ -55,7 +55,7 @@ function kadroRozet(kadro) {
   return `<span class="rozet ${renk}">${kadroAd(kadro)}</span>`;
 }
 // Hesap/kullandırım kuralı: işçi ve (MEMUR_DA_FORMUL açıksa) memur aynı formülü kullanır
-const isIsci = kadro => MEMUR_DA_FORMUL || kadro === 'isci';
+const isIsci = kadro => ISCI_FORMUL && (MEMUR_DA_FORMUL || kadro === 'isci');
 
 // Dakikayı "X Saat Y Dk" yazar (işaretli)
 function dkYaz(dk) {
@@ -82,6 +82,10 @@ function gunYaz(g) {
 // Eşiği değiştirmek için yalnızca TAM_GUN_ICAP_DK değerini değiştirmek yeterlidir.
 // Hesap tam sayı aritmetiğiyle yapılır; gün, toplam icap üzerinden aşağı yuvarlanır.
 // Memur için de aynı kural uygulansın mı? false = memur 1'e 1
+// ISCI_FORMUL = false → işçi de memur gibi 1'e 1 çalışır: 24 saat icap = 24 saat izin (hak edilen izin = icap süresi, izin saat cinsinden talep edilir).
+// 14 saat 10 dakika (850 dk) yalnızca evrak/dilekçede görünen resmî rakamdır, program hesabında kullanılmaz.
+// Eski formüle (14 sa 10 dk = 24 saat izin) dönmek için true yapın.
+const ISCI_FORMUL = false;
 const MEMUR_DA_FORMUL = false; // memur: 1 saat icap = 1 saat izin (24 saat icap → 24 saat izin hakkı, kullanınca 24 saat düşer); işçi: 14 sa 10 dk → 24 saat
 const IZIN_GUN_DK = 24 * 60;          // 1 tam izin günü = 24 saatlik nöbet günü
 const ISCI_IS_GUNU_DK = 8 * 60;       // her "gün" = 8 saat izin
@@ -111,10 +115,15 @@ function bakiyeHesapla(icaplar, izinler, kadro) {
   return { isci: false, toplamDk, kullanilanDk, kalanDk: toplamDk - kullanilanDk };
 }
 const bakiyeEksiMi = b => b.kalanDk < 0;
+// Memur ve işçi AYNI kuralla çalışır: hak 1'e 1 hesaplanır, izin yalnızca 24 saatlik tam gün (24-48-72 saat...) periyotlarla talep edilir.
+const izinGunluk = kadro => true;
 
 function bakiyeDokumHtml(b, kadro, kompakt = false) {
   const eksi = bakiyeEksiMi(b);
   const hakDk = b.isci ? b.hakDk : b.toplamDk;           // hak edilen izin (dakika)
+  const gunluk = izinGunluk(kadro);
+  const tamGun = b.isci ? b.tamGun : Math.max(0, Math.floor(b.kalanDk / IZIN_GUN_DK));
+  const sonrakiTamGunDk = b.isci ? b.sonrakiTamGunDk : (b.kalanDk < 0 ? IZIN_GUN_DK - b.kalanDk : IZIN_GUN_DK - (b.kalanDk % IZIN_GUN_DK));
   const uyari = !kadro ? `<div class="uyari" style="margin-top:10px">⚠️ <span>Kadronuz (memur/işçi) seçilmemiş. Yöneticinize bildirin.</span></div>` : '';
   const aciklama = (metin) => `<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;font-size:13px;color:var(--blue)">Nasıl hesaplanır?</summary><div style="font-size:12.5px;line-height:1.55;color:var(--text);margin-top:8px">${metin}</div></details>`;
 
@@ -123,22 +132,22 @@ function bakiyeDokumHtml(b, kadro, kompakt = false) {
   }
   const hesapMetin = b.isci
     ? `Daire başkanlığı uygulaması: <b>14 saat 10 dakika icap görevini tamamlayan personele 24 saat izin</b> verilir.<br>Ara süreler orantılıdır: her 4 saat 43 dakika icap = 8 saat izin. İzin 24 saatlik tam gün olarak kullanılır.`
-    : `İcap süreniz kadar izin kullanırsınız: <b>1 saat icap = 1 saat izin</b>.`; // (MEMUR_DA_FORMUL kapalıysa memur)
+    : (gunluk ? `<b>24 saat icap = 24 saat izin</b> hakkı doğar. İzin <b>24 saatlik periyotlar</b> halinde (24 - 48 - 72 saat…) talep edilir; talep için en az 24 saatlik icap bakiyesi gerekir.` : `İcap süreniz kadar izin kullanırsınız: <b>1 saat icap = 1 saat izin</b> (24 saat icap = 24 saat izin).`);
   return `<div class="dokum">
       <div class="dokum-satir"><span>İcap Saati</span><b>${dkYaz(b.toplamDk)}</b></div>
       <div class="dokum-satir ilave"><span>Hak Edilen İzin Saati</span><b>${dkYaz(hakDk)}</b></div>
       <div class="dokum-satir eksi"><span>Kullanılan İzin</span><b>${dkYaz(b.kullanilanDk)}</b></div>
       <div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kalan İzin</span><b>${dkYaz(b.kalanDk)}</b></div>
     </div>
-    ${b.isci ? `<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
-      ${b.tamGun > 0 ? `<div style="display:flex;align-items:center;gap:12px;background:#e8f6ee;border:1px solid #bfe3cd;border-radius:12px;padding:12px 14px">
+    ${gunluk ? `<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+      ${tamGun > 0 ? `<div style="display:flex;align-items:center;gap:12px;background:#e8f6ee;border:1px solid #bfe3cd;border-radius:12px;padding:12px 14px">
         <div style="font-size:22px">✅</div>
         <div><div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:#2f7d4f">KULLANILABİLİR İZİN</div>
-        <div style="font-size:16px;font-weight:800;color:#1c5a37">${b.tamGun} tam gün (${b.tamGun * 24} saat)</div></div></div>` : ''}
+        <div style="font-size:16px;font-weight:800;color:#1c5a37">${tamGun} tam gün (${tamGun * 24} saat)</div></div></div>` : ''}
       <div style="display:flex;align-items:center;gap:12px;background:#fff8ea;border:1px solid #f1dcae;border-radius:12px;padding:12px 14px">
         <div style="font-size:22px">⏳</div>
-        <div><div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:#9a6a12">${b.tamGun > 0 ? 'SONRAKİ 24 SAATLİK İZNE KALAN İCAP' : '24 SAATLİK İZNE KALAN İCAP'}</div>
-        <div style="font-size:18px;font-weight:800;color:#6b4708">${dkYaz(b.sonrakiTamGunDk)}</div></div></div>
+        <div><div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:#9a6a12">${tamGun > 0 ? 'SONRAKİ 24 SAATLİK İZNE KALAN İCAP' : '24 SAATLİK İZNE KALAN İCAP'}</div>
+        <div style="font-size:18px;font-weight:800;color:#6b4708">${dkYaz(sonrakiTamGunDk)}</div></div></div>
     </div>` : ''}
     <div style="margin-top:10px"><span class="rozet r-mavi">${MEMUR_DA_FORMUL ? 'İşçi / Memur' : kadroAd(kadro)}</span></div>
     ${aciklama(hesapMetin)}${uyari}`;
@@ -323,7 +332,7 @@ async function panelYukle() {
         rows += `<tr>
           <td><span class="rozet r-mor">İzin</span></td>
           <td><div class="hucre-isim">${tarihYaz(x.data.izin_tarihi)}</div><div class="hucre-alt">${esc(x.data.aciklama || 'İzin kullanımı')}</div>${mevcutPersonel.kadro === 'memur' ? `<button type="button" class="cizelge-btn" onclick="izinCizelgeIndir('${x.data.id}')">📄 Mesai Çizelgesi (Excel)</button>` : ''}</td>
-          <td class="sag eksi">-${isIsci(mevcutPersonel.kadro) ? gunYaz(x.data.talep_edilen_dakika / IZIN_GUN_DK) : dkYaz(x.data.talep_edilen_dakika)}</td></tr>`;
+          <td class="sag eksi">-${izinGunluk(mevcutPersonel.kadro) ? gunYaz(x.data.talep_edilen_dakika / IZIN_GUN_DK) : dkYaz(x.data.talep_edilen_dakika)}</td></tr>`;
       }
     });
     
@@ -564,7 +573,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
         const { data: pIzins } = await sb.from('icap_izin_talepleri').select('*').eq('personel_id', b.personel_id).eq('durum', 'onaylandi');
         const pBakiye = bakiyeHesapla(pIcaps, pIzins, b.personel.kadro);
         
-        const isciMi = isIsci(b.personel.kadro);
+        const isciMi = izinGunluk(b.personel.kadro);
         const talepMetin = isciMi ? `${gunYaz(b.talep_edilen_dakika / IZIN_GUN_DK)} (${dkYaz(b.talep_edilen_dakika)})` : dkYaz(b.talep_edilen_dakika);
         const sonraMetin = dkYaz(pBakiye.kalanDk - b.talep_edilen_dakika);
         const sonraEksi = (pBakiye.kalanDk - b.talep_edilen_dakika) < 0;
@@ -1212,14 +1221,14 @@ async function izinModalAc() {
   const bekleyenDk = (bekleyen || []).reduce((s, x) => s + (x.talep_edilen_dakika || 0), 0);
   // Onay bekleyen talepler de düşülür: aynı hakla iki kez izin istenemesin
   anlikKalanBakiye = bakiye.kalanDk - bekleyenDk;
-  const isci = isIsci(mevcutPersonel.kadro);
+  const isci = izinGunluk(mevcutPersonel.kadro);
   const bekleyenNot = bekleyenDk > 0 ? `<div class="hucre-alt" style="margin-top:4px">Onay bekleyen talepleriniz: ${isci ? gunYaz(bekleyenDk / IZIN_GUN_DK) : dkYaz(bekleyenDk)} (düşüldü)</div>` : '';
 
   const giris = isci
     ? `<div class="form-grup">
          <label>Kaç gün izin kullanacaksınız?</label>
          <input type="number" id="izinGun" min="1" step="1" value="1" inputmode="numeric" oninput="izinHesapGuncelle()">
-         <div class="hucre-alt" style="margin-top:4px">1 gün = 24 saat (tam nöbet günü). İzin yalnızca tam gün olarak kullanılabilir.</div>
+         <div class="hucre-alt" style="margin-top:4px">1 gün = 24 saat. İzin yalnızca 24 saatlik periyotlar halinde (1 gün = 24 saat, 2 gün = 48 saat…) talep edilebilir. Talep için en az 24 saatlik icap bakiyesi gerekir.</div>
        </div>`
     : `<div class="form-grup">
          <label>Talep Etmek İstediğiniz İzin (Saat)</label>
@@ -1248,7 +1257,7 @@ async function izinModalAc() {
 
 // Formdaki talebi dakikaya çevirir (işçi: tam gün, memur: saat)
 function izinTalepDakika() {
-  if (isIsci(mevcutPersonel.kadro)) {
+  if (izinGunluk(mevcutPersonel.kadro)) {
     const g = Math.floor(parseFloat(document.getElementById('izinGun')?.value) || 0);
     return g > 0 ? g * IZIN_GUN_DK : 0;
   }
@@ -1257,7 +1266,7 @@ function izinTalepDakika() {
 }
 
 window.izinHesapGuncelle = function() {
-  const isci = isIsci(mevcutPersonel.kadro);
+  const isci = izinGunluk(mevcutPersonel.kadro);
   const dk = izinTalepDakika();
   const sonra = anlikKalanBakiye - dk;
   document.getElementById('hesaplananIzin').innerText = isci ? `${gunYaz(dk / IZIN_GUN_DK)} (${dk / 60} saat)` : dkYaz(dk);
@@ -1267,7 +1276,7 @@ window.izinHesapGuncelle = function() {
 };
 
 async function izinTalepEt() {
-  const isci = isIsci(mevcutPersonel.kadro);
+  const isci = izinGunluk(mevcutPersonel.kadro);
   const toplamDk = izinTalepDakika();
   if (toplamDk <= 0) return toast(isci ? "En az 1 gün girin." : "Geçerli süre girin.");
   const tarih = document.getElementById('izinTarih').value;
