@@ -1401,8 +1401,10 @@ async function hazirPersonelleriGetir() {
   let soforler = filtrelenmisListe.filter(p => p.nitelik === 'sofor');
 
   if (mevcutPersonel.rol === 'vardiya_cavusu' && parseInt(mevcutPersonel.vardiya) === vardiya) {
-    if (!erler.some(p => p.id === mevcutPersonel.id)) erler.push(mevcutPersonel);
-    if (!soforler.some(p => p.id === mevcutPersonel.id)) soforler.push(mevcutPersonel);
+    // Çavuş yalnızca kendi niteliğine göre listelenir (Er ise Er listesinde, Şoför ise Şoför listesinde)
+    const nitelik = mevcutPersonel.nitelik;
+    if ((nitelik === 'er' || !nitelik) && !erler.some(p => p.id === mevcutPersonel.id)) erler.push(mevcutPersonel);
+    if (nitelik === 'sofor' && !soforler.some(p => p.id === mevcutPersonel.id)) soforler.push(mevcutPersonel);
   }
   
   document.getElementById('hazirPersonelAlan').innerHTML = `
