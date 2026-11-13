@@ -135,7 +135,6 @@ function bakiyeDokumHtml(b, kadro, kompakt = false) {
     : (gunluk ? `<b>24 saat icap = 24 saat izin</b> hakkı doğar. İzin <b>24 saatlik periyotlar</b> halinde (24 - 48 - 72 saat…) talep edilir; talep için en az 24 saatlik icap bakiyesi gerekir.` : `İcap süreniz kadar izin kullanırsınız: <b>1 saat icap = 1 saat izin</b> (24 saat icap = 24 saat izin).`);
   return `<div class="dokum">
       <div class="dokum-satir"><span>İcap Saati</span><b>${dkYaz(b.toplamDk)}</b></div>
-      <div class="dokum-satir ilave"><span>Hak Edilen İzin Saati</span><b>${dkYaz(hakDk)}</b></div>
       <div class="dokum-satir eksi"><span>Kullanılan İzin</span><b>${dkYaz(b.kullanilanDk)}</b></div>
       <div class="dokum-satir kalan ${eksi ? 'eksi' : ''}"><span>Kalan İzin</span><b>${dkYaz(b.kalanDk)}</b></div>
     </div>
@@ -562,7 +561,8 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     if (rol === 'vardiya_cavusu') izinQuery = izinQuery.eq('personel.vardiya', mevcutPersonel.vardiya).eq('eksi_bakiye_mi', false);
     if (rol === 'grup_amiri' || rol === 'super_admin') izinQuery = izinQuery.or(`eksi_bakiye_mi.eq.true,personel.rol.in.(gunduz_85,gunduz_816)`);
     
-    const { data: izinler } = await izinQuery;
+    let { data: izinler } = await izinQuery;
+    izinler = (izinler || []).filter(b => b.personel);
     let iHtml = '';
     
     if (izinler && izinler.length > 0) {
@@ -578,6 +578,8 @@ async function rolIcerikCiz(aktifler, hazirlar) {
         const sonraMetin = dkYaz(pBakiye.kalanDk - b.talep_edilen_dakika);
         const sonraEksi = (pBakiye.kalanDk - b.talep_edilen_dakika) < 0;
         const mevcutMetin = dkYaz(pBakiye.kalanDk);
+        const cakisanlar = await izinCakismalariGetir(b.personel_id, b.personel.vardiya, b.izin_tarihi, b.talep_edilen_dakika, b.id);
+        const cakismaHtml = cakisanlar.length ? `<div class="izin-cakisma" style="margin:10px 0 0">⚠️ <b>Çakışma:</b> Aynı vardiyadan başka personel de bu tarihlerde izinli/izin talebinde.<br>${cakismaSatirlari(cakisanlar)}</div>` : '';
 
         iHtml += `<div class="onay-item" style="border-left-color:var(--violet)">
           <div class="onay-ust">
@@ -595,6 +597,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
             <div class="dokum-satir sonra ${sonraEksi ? 'eksi' : ''}"><span>Onaylanırsa kalan:</span><b>${sonraMetin}</b></div>
           </div>
 
+          ${cakismaHtml}
           <div class="onay-btnler"><button type="button" class="btn btn-success" onclick="onayla('${b.id}', 'izin')">✓ Onayla</button><button type="button" class="btn btn-danger" onclick="reddet('${b.id}', 'izin')">✕ Reddet</button></div>
         </div>`;
       }
@@ -1246,7 +1249,8 @@ async function izinModalAc() {
     <div class="uyari" style="margin-bottom:12px; background:#e8f0fa; color:var(--blue); border-color:#cfe0f3;">
       ℹ️ <span>Talebiniz yetkili amire onay için iletilecektir.</span>
     </div>
-    <div class="form-grup"><label>Tarih</label><input type="date" id="izinTarih" value="${new Date().toISOString().split('T')[0]}"></div>
+    <div class="form-grup"><label>Tarih</label><input type="date" id="izinTarih" value="${new Date().toISOString().split('T')[0]}" onchange="izinHesapGuncelle()"></div>
+    <div class="izin-cakisma" id="izinCakisma" style="display:none"></div>
     <div class="form-grup"><label>Açıklama</label><input type="text" id="izinAciklama" placeholder="İzin Açıklaması?"></div>
     <button type="button" class="btn btn-mor" onclick="izinTalepEt()">✓ Talebi Gönder</button>
     <button type="button" class="btn btn-link" onclick="document.getElementById('izinModal').remove()">İptal</button>
@@ -1265,6 +1269,37 @@ function izinTalepDakika() {
   return s > 0 ? Math.round(s * 60) : 0;
 }
 
+
+// ---------- İZİN ÇAKIŞMA KONTROLÜ (aynı vardiya personeli) ----------
+const gunEkle = (tarih, n) => { const d = new Date(tarih + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const tarihTR = t => String(t).split('-').reverse().join('.');
+function izinAraligi(tarih, dk) { const gun = Math.max(1, Math.ceil((dk || 0) / IZIN_GUN_DK)); return [tarih, gunEkle(tarih, gun - 1)]; }
+// Aynı vardiyadaki diğer personelin (onaylı veya onay bekleyen) izinleriyle tarih çakışması
+async function izinCakismalariGetir(personelId, vardiya, tarih, dk, haricId = null) {
+  if (!vardiya || !tarih) return [];
+  const [b1, b2] = izinAraligi(tarih, dk);
+  try {
+    const { data, error } = await sb.from('icap_izin_talepleri')
+      .select('id, personel_id, izin_tarihi, talep_edilen_dakika, durum, personel:personel_id(ad_soyad, vardiya)')
+      .in('durum', ['onay_bekliyor', 'onaylandi']).gte('izin_tarihi', gunEkle(b1, -30)).lte('izin_tarihi', b2);
+    if (error) return [];
+    return (data || []).filter(x => x.personel && x.personel.vardiya === vardiya && x.personel_id !== personelId && x.id !== haricId)
+      .filter(x => { const [c1, c2] = izinAraligi(x.izin_tarihi, x.talep_edilen_dakika); return c1 <= b2 && c2 >= b1; });
+  } catch (e) { return []; }
+}
+const cakismaSatirlari = liste => liste.map(x => {
+  const [c1, c2] = izinAraligi(x.izin_tarihi, x.talep_edilen_dakika);
+  return `• <b>${esc(x.personel.ad_soyad)}</b> — ${tarihTR(c1)}${c2 !== c1 ? ' → ' + tarihTR(c2) : ''} (${x.durum === 'onaylandi' ? 'onaylı izin' : 'onay bekliyor'})`;
+}).join('<br>');
+window.izinCakismaGuncelle = async function() {
+  const el = document.getElementById('izinCakisma'); if (!el) return;
+  const tarih = document.getElementById('izinTarih')?.value, dk = izinTalepDakika();
+  const liste = await izinCakismalariGetir(mevcutPersonel.id, mevcutPersonel.vardiya, tarih, dk);
+  if (!document.getElementById('izinCakisma')) return;
+  el.innerHTML = liste.length ? `⚠️ <b>Çakışma uyarısı:</b> Aynı vardiyadan başka personel de bu tarihlerde izinli/izin talebinde.<br>${cakismaSatirlari(liste)}` : '';
+  el.style.display = liste.length ? 'block' : 'none';
+};
+
 window.izinHesapGuncelle = function() {
   const isci = izinGunluk(mevcutPersonel.kadro);
   const dk = izinTalepDakika();
@@ -1273,6 +1308,7 @@ window.izinHesapGuncelle = function() {
   const el = document.getElementById('kalanIzin');
   el.innerText = dkYaz(sonra);
   el.style.color = sonra < 0 ? 'var(--red)' : 'var(--blue)';
+  window.izinCakismaGuncelle && izinCakismaGuncelle();
 };
 
 async function izinTalepEt() {
@@ -1282,6 +1318,12 @@ async function izinTalepEt() {
   const tarih = document.getElementById('izinTarih').value;
   if (!tarih) return toast("Tarih seçin.");
   const eksiMi = (anlikKalanBakiye - toplamDk) < 0;
+
+  const cakisanlar = await izinCakismalariGetir(mevcutPersonel.id, mevcutPersonel.vardiya, tarih, toplamDk);
+  if (cakisanlar.length) {
+    const ad = cakisanlar.map(x => `• ${x.personel.ad_soyad} (${tarihTR(x.izin_tarihi)}${x.durum === 'onaylandi' ? ', onaylı' : ', onay bekliyor'})`).join('\n');
+    if (!confirm(`⚠️ ÇAKIŞMA: Aynı vardiyadan şu personel bu tarihlerde izinli/izin talebinde:\n\n${ad}\n\nYine de talep gönderilsin mi? (Vardiya çavuşu çakışmayı görerek karar verecek.)`)) return;
+  }
 
   if (eksiMi && mevcutPersonel.rol !== 'grup_amiri' && mevcutPersonel.rol !== 'super_admin') {
     if (!confirm("Bakiyeniz yetersiz! Eksi bakiyeye düşecek ve talep Grup Amiri onayına gidecek. Devam edilsin mi?")) return;
