@@ -1,10 +1,8 @@
 {
-  "id": "/icap-takip-sistemi/",
-  "scope": "/icap-takip-sistemi/",
   "name": "Seydişehir İtfaiyesi İcap Takip",
   "short_name": "İcap Takip",
   "description": "Seydişehir İtfaiyesi personeli için icap takip, görev süresi ve izin yönetim sistemi.",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
@@ -15,12 +13,14 @@
     {
       "src": "icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
