@@ -1339,7 +1339,7 @@ function izinIcapListeHtml() {
     const sira = izinIcapSecim.secili.indexOf(k.id) + 1;
     return `<label class="icap-sec-satir${sira ? ' secili' : ''}">
       <input type="checkbox" ${sira ? 'checked' : ''} onchange="izinIcapToggle('${k.id}')">
-      <span class="icap-sec-bilgi"><b>${esc(tarihYaz(k.bas))}</b> · ${esc(saatYaz(k.bas))}${k.bit ? ' – ' + esc(saatYaz(k.bit)) : ''}${k.aciklama ? ' · ' + esc(String(k.aciklama).replace('[MANUEL] ', '')) : ''}</span>
+      <span class="icap-sec-bilgi"><b>${esc(tarihYaz(k.bas))}</b> · ${esc(saatYaz(k.bas))}${k.bit ? ' → ' + (tarihYaz(k.bit) !== tarihYaz(k.bas) ? '<b>' + esc(tarihYaz(k.bit)) + '</b> · ' : '') + esc(saatYaz(k.bit)) : ''}${String(k.aciklama || '').replace('[MANUEL]', '').trim() ? '<br><small style="color:#64748b">' + esc(String(k.aciklama).replace('[MANUEL]', '').trim()) + '</small>' : ''}</span>
       <span class="icap-sec-sure">${dkYaz(k.kalan)}${k.kalan < k.toplam ? '<small>/' + dkYaz(k.toplam) + '</small>' : ''}</span></label>`;
   }).join('');
 }
