@@ -597,6 +597,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
             <span class="rozet r-mor">Talep: ${talepMetin}</span>
           </div>
           
+          ${Array.isArray(b.secilen_icaplar) && b.secilen_icaplar.length ? `<div style="margin-top:10px;padding:9px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;font-size:12.5px;line-height:1.55;color:#0c4a6e"><b>🧾 Seçilen icaplar:</b><br>${b.secilen_icaplar.map(s => { const ic = (pIcaps || []).find(x => x.id === s.icap_id); return ic ? `• ${esc(tarihYaz(ic.baslama_zamani))} ${esc(saatYaz(ic.baslama_zamani))}${ic.bitis_zamani ? '–' + esc(saatYaz(ic.bitis_zamani)) : ''} · <b>${dkYaz(s.dk)}</b>${s.dk < ic.toplam_dakika ? ' (icabın bir kısmı)' : ''}` : '• (icap kaydı bulunamadı)'; }).join('<br>')}</div>` : ''}
           ${b.aciklama && String(b.aciklama).trim() ? `<div style="margin-top:10px;padding:9px 12px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;font-size:13px;line-height:1.45;color:#3b2a74"><b>💬 Açıklama:</b> ${esc(b.aciklama)}</div>` : ''}
           <div style="margin-top:10px; font-size:12px;">
             <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
@@ -1100,7 +1101,9 @@ function exceljsYukle() {
   });
 }
 
-// Seçilen izin talebini karşılayan icap parçalarını bulur
+// Seçilen izin talebini karşılayan icap parçalarını bulur.
+// Talepte personelin seçtiği icaplar (secilen_icaplar) varsa onlar; eski taleplerde (seçimsiz) en eski icaptan başlayarak otomatik karşılanır.
+// Aynı icabı birden çok izin kullanırsa, parçalar icabın başından itibaren sırayla (izin sırasına göre) dizilir.
 async function cetvelParcalari(personelId, izinId) {
   const [{ data: icaps }, { data: izins }] = await Promise.all([
     sb.from('icap_gorevleri').select('*').eq('personel_id', personelId).eq('durum', 'onaylandi').order('baslama_zamani', { ascending: true }),
@@ -1108,18 +1111,23 @@ async function cetvelParcalari(personelId, izinId) {
   ]);
   const hedefIzin = (izins || []).find(x => x.id === izinId);
   const yil = hedefIzin ? yilOf(hedefIzin.izin_tarihi) : bakiyeYili();   // bakiye yıllık: yalnız aynı yılın icapları karşılar
-  const kayitlar = (icaps || []).filter(k => yilOf(k.baslama_zamani) === yil && (k.toplam_dakika || 0) > 0).map(k => ({ bas: new Date(k.baslama_zamani), kalan: k.toplam_dakika, kullanilan: 0 }));
-  let idx = 0, secili = [];
+  const liste = (icaps || []).filter(k => yilOf(k.baslama_zamani) === yil && (k.toplam_dakika || 0) > 0);
+  const harita = {}, imlec = {}, kalan = {};
+  liste.forEach(k => { harita[k.id] = k; imlec[k.id] = 0; kalan[k.id] = k.toplam_dakika; });
+  const parcaAl = (k, dk, hedefe) => {
+    const al = Math.min(dk, kalan[k.id]); if (al <= 0) return 0;
+    if (hedefe) hedefe.push({ baslangic: new Date(new Date(k.baslama_zamani).getTime() + imlec[k.id] * 60000), dk: al, icapId: k.id });
+    imlec[k.id] += al; kalan[k.id] -= al; return al;
+  };
   for (const iz of (izins || []).filter(x => yilOf(x.izin_tarihi) === yil)) {
-    let ihtiyac = iz.talep_edilen_dakika || 0;
-    while (ihtiyac > 0 && idx < kayitlar.length) {
-      const k = kayitlar[idx];
-      const al = Math.min(k.kalan, ihtiyac);
-      if (iz.id === izinId) secili.push({ baslangic: new Date(k.bas.getTime() + k.kullanilan * 60000), dk: al });
-      k.kullanilan += al; k.kalan -= al; ihtiyac -= al;
-      if (k.kalan <= 0) idx++;
+    const secili = []; let ihtiyac = iz.talep_edilen_dakika || 0;
+    const hedef = iz.id === izinId ? secili : null;
+    if (Array.isArray(iz.secilen_icaplar) && iz.secilen_icaplar.length) {
+      for (const s of iz.secilen_icaplar) { const k = harita[s.icap_id]; if (k) ihtiyac -= parcaAl(k, s.dk, hedef); }
+    } else {
+      for (const k of liste) { if (ihtiyac <= 0) break; ihtiyac -= parcaAl(k, ihtiyac, hedef); }
     }
-    if (iz.id === izinId) return { parcalar: secili, eksik: ihtiyac, izin: iz };
+    if (iz.id === izinId) return { parcalar: secili, eksik: Math.max(0, ihtiyac), izin: iz };
   }
   return null;
 }
@@ -1168,6 +1176,25 @@ function cetvelSayfaYaz(wb, ad, satirlar, baslaNo, tanzim, kisi) {
   return ws;
 }
 
+// Her satır TEK takvim gününde olmalı: gece yarısını geçen veya 24 saatlik parçalar günlere bölünür
+// (örn. 12.11 20:50 → 13.11 20:50 = 12.11 20:50–24:00 ve 13.11 00:00–20:50). Gün sonu "24:00" yazılır.
+function cetvelSatirlaraBol(parcalar) {
+  const satirlar = [];
+  const dkOf = d => (d.getHours() * 60 + d.getMinutes()) / 1440;
+  const trTarih = d => d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  [...parcalar].sort((x, y) => x.baslangic - y.baslangic).forEach(p => {   // çizelge tarih sırasına göre
+    let cur = new Date(p.baslangic), kalan = Math.round(p.dk);
+    while (kalan > 0) {
+      const gunSonu = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1);
+      const buGun = Math.min(kalan, Math.round((gunSonu - cur) / 60000));
+      const bitis = new Date(cur.getTime() + buGun * 60000);
+      satirlar.push({ tarih: trTarih(cur), bas: dkOf(cur), bit: bitis.getTime() >= gunSonu.getTime() ? '24:00' : dkOf(bitis), toplam: cetvelSureYaz(buGun) });
+      cur = bitis; kalan -= buGun;
+    }
+  });
+  return satirlar;
+}
+
 async function izinCizelgeIndir(izinId) {
   try {
     toast("Çizelge hazırlanıyor...", "basari");
@@ -1180,14 +1207,7 @@ async function izinCizelgeIndir(izinId) {
     const sonuc = await cetvelParcalari(iz.personel_id, izinId);
     if (!sonuc || sonuc.parcalar.length === 0) return toast("Bu izni karşılayan icap kaydı bulunamadı.");
 
-    const satirlar = sonuc.parcalar.map(p => {
-      const bitis = new Date(p.baslangic.getTime() + p.dk * 60000);
-      const dkOf = d => (d.getHours() * 60 + d.getMinutes()) / 1440;
-      return {
-        tarih: p.baslangic.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-        bas: dkOf(p.baslangic), bit: dkOf(bitis), toplam: cetvelSureYaz(p.dk)
-      };
-    });
+    const satirlar = cetvelSatirlaraBol(sonuc.parcalar);
     const kisi = { ad: (iz.personel.ad_soyad || '').toLocaleUpperCase('tr-TR'), sicil: iz.personel.sicil_no ? (isNaN(iz.personel.sicil_no) ? iz.personel.sicil_no : Number(iz.personel.sicil_no)) : null };
     const tanzim = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\./g, '/');
 
@@ -1248,6 +1268,14 @@ async function izinModalAc() {
          <input type="number" id="izinSaat" min="1" step="0.5" value="24" inputmode="decimal" oninput="izinHesapGuncelle()">
        </div>`;
 
+  const izinIcapKalanlar = icapKalanHesapla(icaps, [...(izins || []), ...(bekleyen || [])]);
+  izinIcapSecim = { liste: izinIcapKalanlar, secili: [] };
+  const izinIcapSecimHtml = `<div class="form-grup"><label>İzne Sayılacak İcaplar</label>
+      <div class="hucre-alt" style="margin:-2px 0 8px">Yaptığınız icaplardan seçerek izin süresini (24 saat) tamamlayın. Seçilen icaplar çizelgeye satır satır yazılır; son icaptan gereken kısım alınır, kalanı bakiyenizde kalır.</div>
+      <div id="izinSecimDurum" class="icap-sec-durum"></div>
+      <div class="icap-sec-liste" id="izinIcapListe">${izinIcapListeHtml()}</div>
+      ${izinIcapKalanlar.length ? '<button type="button" class="btn btn-link" style="padding:6px 0" onclick="izinIcapOtomatikSec()">⚡ En eski icaplardan otomatik seç</button>' : ''}
+    </div>`;
   const html = `<div class="modal aktif" id="izinModal"><div class="modal-content">
     <h3 style="color:var(--violet)">📅 İcap İzni Talebi</h3>
     <div style="margin-bottom:12px">${bakiyeDokumHtml(bakiye, mevcutPersonel.kadro, true)}${bekleyenNot}</div>
@@ -1256,6 +1284,7 @@ async function izinModalAc() {
        <div class="dokum-satir ilave"><span>Bu talep:</span><b id="hesaplananIzin"></b></div>
        <div class="dokum-satir toplam" style="border-bottom:none;"><span>İşlem sonrası kalan:</span><b id="kalanIzin"></b></div>
     </div>
+    ${izinIcapSecimHtml}
     <div class="uyari" style="margin-bottom:12px; background:#e8f0fa; color:var(--blue); border-color:#cfe0f3;">
       ℹ️ <span>Talebiniz yetkili amire onay için iletilecektir.</span>
     </div>
@@ -1268,6 +1297,66 @@ async function izinModalAc() {
   document.body.insertAdjacentHTML('beforeend', html);
   izinHesapGuncelle();
 }
+
+// ---------- İZİN İÇİN İCAP SEÇİMİ ----------
+let izinIcapSecim = { liste: [], secili: [] };
+
+// Her icabın izinlerde kullanılmış kısmını düşerek kalan dakikaları verir (eski seçimsiz izinler en eski icaptan karşılanmış sayılır)
+function icapKalanHesapla(icaplar, izinler, yil = bakiyeYili()) {
+  const liste = (icaplar || []).filter(k => yilOf(k.baslama_zamani) === yil && (k.toplam_dakika || 0) > 0)
+    .sort((x, y) => new Date(x.baslama_zamani) - new Date(y.baslama_zamani));
+  const kalan = {}; liste.forEach(k => kalan[k.id] = k.toplam_dakika);
+  const izl = (izinler || []).filter(x => yilOf(x.izin_tarihi) === yil).sort((x, y) => String(x.izin_tarihi).localeCompare(String(y.izin_tarihi)));
+  izl.filter(x => Array.isArray(x.secilen_icaplar) && x.secilen_icaplar.length).forEach(x =>
+    x.secilen_icaplar.forEach(s => { if (kalan[s.icap_id] !== undefined) kalan[s.icap_id] = Math.max(0, kalan[s.icap_id] - (s.dk || 0)); }));
+  izl.filter(x => !(Array.isArray(x.secilen_icaplar) && x.secilen_icaplar.length)).forEach(x => {
+    let ihtiyac = x.talep_edilen_dakika || 0;
+    for (const k of liste) { if (ihtiyac <= 0) break; const al = Math.min(kalan[k.id], ihtiyac); kalan[k.id] -= al; ihtiyac -= al; }
+  });
+  return liste.filter(k => kalan[k.id] > 0).map(k => ({ id: k.id, bas: k.baslama_zamani, bit: k.bitis_zamani, toplam: k.toplam_dakika, kalan: kalan[k.id], aciklama: k.gorev_aciklamasi }));
+}
+function izinIcapListeHtml() {
+  if (!izinIcapSecim.liste.length) return '<div class="bos" style="padding:12px">Bu yıl izne sayılabilecek onaylı icap yok.</div>';
+  return izinIcapSecim.liste.map(k => {
+    const sira = izinIcapSecim.secili.indexOf(k.id) + 1;
+    return `<label class="icap-sec-satir${sira ? ' secili' : ''}">
+      <input type="checkbox" ${sira ? 'checked' : ''} onchange="izinIcapToggle('${k.id}')">
+      <span class="icap-sec-bilgi"><b>${esc(tarihYaz(k.bas))}</b> · ${esc(saatYaz(k.bas))}${k.bit ? ' – ' + esc(saatYaz(k.bit)) : ''}${k.aciklama ? ' · ' + esc(String(k.aciklama).replace('[MANUEL] ', '')) : ''}</span>
+      <span class="icap-sec-sure">${dkYaz(k.kalan)}${k.kalan < k.toplam ? '<small>/' + dkYaz(k.toplam) + '</small>' : ''}</span></label>`;
+  }).join('');
+}
+// Seçim planı: tıklama sırasıyla hedef süre dolana kadar alır; son icaptan yalnız gereken kısım kullanılır
+function izinSecimPlani() {
+  const hedef = izinTalepDakika();
+  let ihtiyac = hedef, fazla = false; const parcalar = [];
+  izinIcapSecim.secili.forEach(id => {
+    const k = izinIcapSecim.liste.find(x => x.id === id); if (!k) return;
+    if (ihtiyac <= 0) { fazla = true; return; }
+    const al = Math.min(k.kalan, ihtiyac); parcalar.push({ icap_id: id, dk: al }); ihtiyac -= al;
+  });
+  return { hedef, parcalar, eksik: Math.max(0, ihtiyac), fazla, secilen: hedef - Math.max(0, ihtiyac) };
+}
+function izinIcapSecimGoster() {
+  const p = izinSecimPlani(), el = document.getElementById('izinSecimDurum'); if (!el) return;
+  let cls = 'icap-sec-durum', metin;
+  if (!izinIcapSecim.secili.length) metin = `Hedef: ${dkYaz(p.hedef)} · henüz icap seçilmedi`;
+  else if (p.fazla) { cls += ' hata'; metin = `Fazla icap seçtiniz — ${dkYaz(p.hedef)} doldu. Son seçilenleri kaldırın.`; }
+  else if (p.eksik > 0) { cls += ' eksik'; metin = `Seçilen: ${dkYaz(p.secilen)} / ${dkYaz(p.hedef)} · ${dkYaz(p.eksik)} daha seçin`; }
+  else { cls += ' tamam'; metin = `✓ ${dkYaz(p.hedef)} tamamlandı`; }
+  el.className = cls; el.innerText = metin;
+  const l = document.getElementById('izinIcapListe'); if (l) l.querySelectorAll('.icap-sec-satir').forEach((s, i) => s.classList.toggle('secili', izinIcapSecim.secili.includes(izinIcapSecim.liste[i]?.id)));
+}
+window.izinIcapToggle = function(id) {
+  const i = izinIcapSecim.secili.indexOf(id);
+  if (i >= 0) izinIcapSecim.secili.splice(i, 1); else izinIcapSecim.secili.push(id);
+  izinIcapSecimGoster();
+};
+window.izinIcapOtomatikSec = function() {
+  const hedef = izinTalepDakika(); let top = 0; izinIcapSecim.secili = [];
+  for (const k of izinIcapSecim.liste) { if (top >= hedef) break; izinIcapSecim.secili.push(k.id); top += k.kalan; }
+  const l = document.getElementById('izinIcapListe'); if (l) l.innerHTML = izinIcapListeHtml();
+  izinIcapSecimGoster();
+};
 
 // Formdaki talebi dakikaya çevirir (işçi: tam gün, memur: saat)
 function izinTalepDakika() {
@@ -1320,6 +1409,7 @@ window.izinHesapGuncelle = function() {
   el.innerText = dkYaz(sonra);
   el.style.color = sonra < 0 ? 'var(--red)' : 'var(--blue)';
   window.izinCakismaGuncelle && izinCakismaGuncelle();
+  izinIcapSecimGoster();
 };
 
 async function izinTalepEt() {
@@ -1332,6 +1422,11 @@ async function izinTalepEt() {
     return toast(`İcap bakiyeleri her yıl 1 Ocak'ta sıfırlanır. İzin tarihleri ${bakiyeYili()} yılı içinde olmalıdır.`);
   const eksiMi = (anlikKalanBakiye - toplamDk) < 0;
 
+  // İcap seçimi: bakiyesi yeterli personel izin süresini (24 saat) seçtiği icaplarla tamamlamak zorunda
+  const plan = izinSecimPlani();
+  if (plan.fazla) return toast("Fazla icap seçtiniz. İzin süresi dolduktan sonraki icapların seçimini kaldırın.");
+  if (!eksiMi && plan.eksik > 0) return toast(`İzin süresini tamamlamak için ${dkYaz(plan.eksik)} daha icap seçin.`);
+
   const cakisanlar = await izinCakismalariGetir(mevcutPersonel.id, mevcutPersonel.vardiya, tarih, toplamDk);
   if (cakisanlar.length) {
     const ad = cakisanlar.map(x => `• ${x.personel.ad_soyad} (${tarihTR(x.izin_tarihi)}${x.durum === 'onaylandi' ? ', onaylı' : ', onay bekliyor'})`).join('\n');
@@ -1342,13 +1437,18 @@ async function izinTalepEt() {
     if (!confirm("Bakiyeniz yetersiz! Eksi bakiyeye düşecek ve talep Grup Amiri onayına gidecek. Devam edilsin mi?")) return;
   }
 
-  const { error } = await sb.from('icap_izin_talepleri').insert([{
+  const kayit = {
       personel_id: mevcutPersonel.id,
       talep_edilen_dakika: toplamDk,
       izin_tarihi: tarih,
       aciklama: document.getElementById('izinAciklama').value,
       eksi_bakiye_mi: eksiMi
-  }]);
+  };
+  let { error } = await sb.from('icap_izin_talepleri').insert([{ ...kayit, secilen_icaplar: plan.parcalar }]);
+  if (error && /secilen_icaplar/.test(error.message || '')) {
+    // SQL güncellemesi henüz çalıştırılmamış: seçimsiz (eski) kayıt olarak gönder
+    ({ error } = await sb.from('icap_izin_talepleri').insert([kayit]));
+  }
   if (error) return toast("Talep gönderilemedi: " + error.message);
 
   document.getElementById('izinModal').remove();
