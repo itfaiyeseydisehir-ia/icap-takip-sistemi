@@ -183,7 +183,7 @@ async function logEkle(islem, aciklama = "") {
 // ---------- GİRİŞ & KAYIT ----------
 document.getElementById('girisForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const email = document.getElementById('girisEmail').value.trim();
+  const email = document.getElementById('girisEmail').value.trim().toLowerCase();
   const sifre = document.getElementById('girisSifre').value;
   document.getElementById('girisHata').innerText = 'Giriş yapılıyor...';
   const { data, error } = await sb.auth.signInWithPassword({ email, password: sifre });
@@ -193,7 +193,7 @@ document.getElementById('girisForm').addEventListener('submit', async (e) => {
 
 document.getElementById('kayitForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const email = document.getElementById('kayitEmail').value.trim();
+  const email = document.getElementById('kayitEmail').value.trim().toLowerCase();
   const sifre = document.getElementById('kayitSifre').value;
   const hataEl = document.getElementById('kayitHata');
   hataEl.innerText = '';
@@ -201,12 +201,22 @@ document.getElementById('kayitForm').addEventListener('submit', async (e) => {
   if (KARA_LISTE.includes(sifre)) return hataEl.innerText = "Bu şifre çok yaygın, başka bir 6 hane girin.";
 
   hataEl.innerText = 'Kontrol ediliyor...';
-  const { data: personel } = await sb.from('personel').select('id, auth_user_id').eq('email', email).single();
+  const { data: personel } = await sb.from('personel').select('id, auth_user_id').ilike('email', email.replace(/[\\%_]/g, m => '\\' + m)).maybeSingle();
   if (!personel) return hataEl.innerText = "Bu e-posta sistemde kayıtlı değil. Yöneticinize başvurun.";
   if (personel.auth_user_id) return hataEl.innerText = "Bu hesap zaten oluşturulmuş.";
 
   const { error } = await sb.auth.signUp({ email, password: sifre });
-  if (error) return hataEl.innerText = "Kayıt hatası: " + error.message;
+  if (error) {
+    if (/already registered/i.test(error.message || '')) {
+      // Bu e-posta ile daha önce giriş hesabı açılmış (örn. kayıt yarım kalmış): aynı şifreyle girip personel kaydına bağla
+      const { data: g, error: gHata } = await sb.auth.signInWithPassword({ email, password: sifre });
+      if (gHata || !g?.user) return hataEl.innerText = "Bu e-posta ile daha önce hesap açılmış. Önceki 6 haneli şifrenizle giriş yapın; hatırlamıyorsanız yöneticiden hesabınızın sıfırlanmasını isteyin.";
+      const { error: bagHata } = await sb.rpc('hesabi_bagla');
+      if (bagHata) return hataEl.innerText = "Hesap bağlanamadı (yönetici SQL güncellemesini çalıştırmalı): " + bagHata.message;
+      return oturumBaslat(g.user);
+    }
+    return hataEl.innerText = "Kayıt hatası: " + error.message;
+  }
 
   const { data: loginData } = await sb.auth.signInWithPassword({ email, password: sifre });
   if (loginData) oturumBaslat(loginData.user);
@@ -299,7 +309,12 @@ async function panelYukle() {
   } else { aHtml = '<div class="bos">Şu an istasyonda icap görevli personel yok.</div>'; }
   document.getElementById('aktifIcapListe').innerHTML = aHtml;
 
-  const { data: hazirHam } = await sb.from('hazir_icapcilar').select('*, er:er_personel_id(ad_soyad), sofor:sofor_personel_id(ad_soyad)').eq('durum', 'aktif').gte('bitis_zamani', new Date().toISOString());
+  let hazirHam = null;
+  try {
+    const r = await sb.rpc('hazir_icapci_listesi');   // tüm personelin ekipleri adlarıyla görebilmesi için (SQL güncellemesi)
+    if (!r.error && Array.isArray(r.data)) hazirHam = r.data.map(h => ({ ...h, er: { ad_soyad: h.er_ad }, sofor: { ad_soyad: h.sofor_ad } }));
+  } catch (e) { hazirHam = null; }
+  if (!hazirHam) ({ data: hazirHam } = await sb.from('hazir_icapcilar').select('*, er:er_personel_id(ad_soyad), sofor:sofor_personel_id(ad_soyad)').eq('durum', 'aktif').gte('bitis_zamani', new Date().toISOString()));
 
   const hazirlar = (hazirHam || []).filter(h => h.vardiya !== sistemAyar.aktif_vardiya);
   const bayatlar = (hazirHam || []).filter(h => h.vardiya === sistemAyar.aktif_vardiya);
@@ -504,12 +519,15 @@ async function rolIcerikCiz(aktifler, hazirlar) {
     </div>`;
   }
 
-  if (['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol)) {
+  {
+    // İcap Görevli Personel paneli: tüm personel görür (nöbetçi vardiya, çağrı yapılacak ekipleri bilmelidir).
+    // Ekip seçme/düzenleme yalnızca nöbet dışı vardiyanın çavuşu ve yöneticilerdedir; diğerleri salt okunur görür.
+    const yoneticiMi = ['vardiya_cavusu', 'grup_amiri', 'super_admin'].includes(rol);
+    const nobetciCavus = rol === 'vardiya_cavusu' && mevcutPersonel.vardiya === sistemAyar.aktif_vardiya;
+    const salt = !yoneticiMi || nobetciCavus;
+    // Herkes tüm nöbet dışı vardiyaların ekiplerini görür; değiştirme/ekleme çavuşta yalnızca kendi vardiyası için açılır
+    const ilgiliHazirlar = [...(hazirlar || [])].sort((x, y) => x.vardiya - y.vardiya);
     let secilenlerHtml = '';
-    const ilgiliHazirlar = hazirlar?.filter(h => {
-      if (rol === 'vardiya_cavusu') return h.vardiya === mevcutPersonel.vardiya;
-      return true; 
-    });
 
     if (ilgiliHazirlar && ilgiliHazirlar.length > 0) {
       ilgiliHazirlar.forEach(h => {
@@ -529,7 +547,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
         </div>`;
       });
     } else {
-      secilenlerHtml = `<div class="ekip-bos">Henüz icap ekibi seçilmedi.<br>İstirahat dönemi için 1 Er ve 1 Şoför seçin.</div>`;
+      secilenlerHtml = salt ? `<div class="ekip-bos">Henüz icap ekibi seçilmedi.</div>` : `<div class="ekip-bos">Henüz icap ekibi seçilmedi.<br>İstirahat dönemi için 1 Er ve 1 Şoför seçin.</div>`;
     }
 
     const ekipSayi = ilgiliHazirlar?.length || 0;
@@ -538,7 +556,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
         <div class="panel-ust-metin"><div class="panel-baslik">İcap Görevli Personel</div><div class="panel-alt">Nöbet dışı vardiyaların icap ekipleri</div></div>
         ${ekipSayi > 0 ? `<span class="rozet r-yesil">${ekipSayi} ekip</span>` : ''}</div>
       ${secilenlerHtml}
-      <button type="button" class="ekip-degistir" onclick="hazirIcapciModalAc()">${IKON.ekip}<span>${ekipSayi > 0 ? 'Görevli Personeli Değiştir' : 'Görevli Personel Seç'}</span></button>
+      ${salt ? '' : `<button type="button" class="ekip-degistir" onclick="hazirIcapciModalAc()">${IKON.ekip}<span>${ekipSayi > 0 ? 'Görevli Personeli Değiştir' : 'Görevli Personel Seç'}</span></button>`}
     </div>`;
   }
 
@@ -1540,6 +1558,7 @@ async function hazirKaydet() {
 
   if (isNaN(vardiya)) return toast("Geçersiz vardiya. Lütfen yöneticinize başvurun.");
   if (vardiya === sistemAyar.aktif_vardiya) return toast("Nöbetçi vardiya (24 saat esaslı) icapçı olarak seçilemez!");
+  if (mevcutPersonel.rol === 'vardiya_cavusu' && vardiya !== parseInt(mevcutPersonel.vardiya)) return toast("Vardiya çavuşu yalnızca kendi vardiyasının icap ekibini değiştirebilir.");
   if (!erId || !soforId) return toast("Lütfen personel seçin. (Er veya Şoför bulunamadıysa yöneticinize başvurun)");
   if (erId === soforId) return toast("Er ve Şoför aynı kişi olamaz. Lütfen farklı kişiler seçin."); 
   
@@ -1728,7 +1747,7 @@ function filtrelePersonelListesi(secim) {
       rows += `<tr>
         <td class="hucre-isim">${esc(p.ad_soyad)}</td>
         <td>${esc(p.email)}</td>
-        <td>${rolRozet(p.rol)} <br><small style="color:#666">${nitelikAd}</small></td>
+        <td>${mevcutPersonel?.rol === 'super_admin' ? rolNitelikSecHtml(p) : `${rolRozet(p.rol)} <br><small style="color:#666">${nitelikAd}</small>`}</td>
         <td>${kadroSec}</td>
         <td><input type="text" class="sicil-input" value="${esc(p.sicil_no || '')}" inputmode="numeric" placeholder="Sicil" onchange="personelSicilKaydet('${p.id}', this.value)"></td>
         <td>${vardiyaAd}</td>
@@ -1743,7 +1762,7 @@ function filtrelePersonelListesi(secim) {
 
 async function personelEkle() {
   const ad = document.getElementById('addAd').value;
-  const email = document.getElementById('addEmail').value;
+  const email = (document.getElementById('addEmail').value || '').trim().toLowerCase();
   const rol = document.getElementById('addRol').value;
   const nitelik = document.getElementById('addNitelik').value;
   const vardiya = document.getElementById('addVardiya').value;
@@ -1763,6 +1782,51 @@ async function personelEkle() {
   
   if (error) toast("Hata: " + error.message);
   else { toast("Personel başarıyla eklendi.", "basari"); await logEkle("Personel Ekledi", ad); adminTab('personel'); }
+}
+
+// ---------- ROL / GÖREV NİTELİĞİ DEĞİŞTİRME (yalnızca Süper Admin) ----------
+// Kayıt aynı satırda güncellenir (id değişmez): geçmiş icap, izin ve bakiye kayıtları etkilenmez.
+const ROL_SECENEKLERI = [['itfaiye_eri', 'İtfaiye Eri'], ['itfaiye_soforu', 'İtfaiye Şoförü'], ['vardiya_cavusu', 'Vardiya Çavuşu'], ['grup_amiri', 'Grup Amiri'], ['gunduz_85', 'Gündüz 8/5'], ['gunduz_816', 'Gündüz 8/16'], ['super_admin', 'Süper Admin']];
+function rolNitelikSecHtml(p) {
+  const kendi = mevcutPersonel && mevcutPersonel.id === p.id;
+  return `<select class="kadro-sec" ${kendi ? 'disabled title="Kendi rolünüzü değiştiremezsiniz"' : ''} onchange="personelRolDegistir('${p.id}', this.value)">
+      ${ROL_SECENEKLERI.map(([k, ad]) => `<option value="${k}" ${p.rol === k ? 'selected' : ''}>${ad}</option>`).join('')}
+    </select>
+    <select class="kadro-sec" style="margin-top:4px" onchange="personelNitelikDegistir('${p.id}', this.value)">
+      <option value="" ${!p.nitelik ? 'selected' : ''}>Nitelik: —</option>
+      <option value="er" ${p.nitelik === 'er' ? 'selected' : ''}>👨‍🚒 Er</option>
+      <option value="sofor" ${p.nitelik === 'sofor' ? 'selected' : ''}>🚛 Şoför</option>
+    </select>`;
+}
+async function personelRolDegistir(id, rol) {
+  const p = (window._adminPersonelListesi || []).find(x => x.id === id);
+  const yenile = () => filtrelePersonelListesi(document.getElementById('adminVardiyaFiltre')?.value || 'tumu');
+  if (mevcutPersonel?.rol !== 'super_admin') { toast("Bu işlem yalnızca Süper Admin içindir."); return yenile(); }
+  if (mevcutPersonel.id === id) { toast("Kendi rolünüzü değiştiremezsiniz."); return yenile(); }
+  const adMap = Object.fromEntries(ROL_SECENEKLERI);
+  if (!confirm(`${p?.ad_soyad || 'Personel'} rolü "${adMap[rol] || rol}" olarak değiştirilsin mi?\n\nGeçmiş icap, izin ve bakiye kayıtları etkilenmez; yalnızca bundan sonraki yetkileri değişir.`)) return yenile();
+  const guncelle = { rol };
+  if (rol === 'itfaiye_eri') guncelle.nitelik = 'er';          // Er ↔ Şoför dönüşümünde görev niteliği de uyumlu kalsın
+  if (rol === 'itfaiye_soforu') guncelle.nitelik = 'sofor';
+  const { error } = await sb.from('personel').update(guncelle).eq('id', id);
+  if (error) { toast("Hata: " + error.message); return yenile(); }
+  if (p) Object.assign(p, guncelle);
+  toast("Rol güncellendi.", "basari");
+  await logEkle("Rol Değiştirdi", `${p?.ad_soyad || ''}: ${adMap[rol] || rol}`);
+  yenile();
+}
+async function personelNitelikDegistir(id, nitelik) {
+  const p = (window._adminPersonelListesi || []).find(x => x.id === id);
+  const yenile = () => filtrelePersonelListesi(document.getElementById('adminVardiyaFiltre')?.value || 'tumu');
+  if (mevcutPersonel?.rol !== 'super_admin') { toast("Bu işlem yalnızca Süper Admin içindir."); return yenile(); }
+  const ad = nitelik === 'er' ? 'Er' : nitelik === 'sofor' ? 'Şoför' : 'Belirtilmedi';
+  if (!confirm(`${p?.ad_soyad || 'Personel'} görev niteliği "${ad}" olarak değiştirilsin mi?\n\nGeçmiş kayıtlar etkilenmez; icap ekibi seçiminde yeni niteliğine göre listelenir.`)) return yenile();
+  const { error } = await sb.from('personel').update({ nitelik: nitelik || null }).eq('id', id);
+  if (error) { toast("Hata: " + error.message); return yenile(); }
+  if (p) p.nitelik = nitelik || null;
+  toast("Görev niteliği güncellendi.", "basari");
+  await logEkle("Nitelik Değiştirdi", `${p?.ad_soyad || ''}: ${ad}`);
+  yenile();
 }
 
 async function personelKadroDegistir(id, kadro) {
