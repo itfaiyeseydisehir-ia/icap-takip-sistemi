@@ -39,6 +39,8 @@ function rolAd(rol) {
   const m = { itfaiye_eri: 'İtfaiye Eri', itfaiye_soforu: 'İtfaiye Şoförü', vardiya_cavusu: 'Vardiya Çavuşu', grup_amiri: 'Grup Amiri', gunduz_85: 'Gündüz 8/5', gunduz_816: 'Gündüz 8/16', super_admin: 'Süper Admin' };
   return m[rol] || rol;
 }
+// Ekranda gösterilecek rol: Süper Admin yetkisi olan kişi, kurum içi görevi olarak "Gündüz Personeli" görünür (yetki değişmez)
+function rolGoster(rol) { return rol === 'super_admin' ? 'Gündüz Personeli' : rolAd(rol); }
 function rolRozet(rol) {
   const renk = { itfaiye_eri: 'r-mavi', itfaiye_soforu: 'r-turuncu', vardiya_cavusu: 'r-mor', grup_amiri: 'r-kirmizi', super_admin: 'r-kirmizi' }[rol] || 'r-gri';
   return `<span class="rozet ${renk}">${esc(rolAd(rol))}</span>`;
@@ -232,7 +234,7 @@ async function oturumBaslat(user) {
   if (ayar) sistemAyar = ayar;
 
   document.getElementById('ustIsim').innerText = mevcutPersonel.ad_soyad;
-  document.getElementById('ustRol').innerText = rolAd(mevcutPersonel.rol).toUpperCase();
+  document.getElementById('ustRol').innerText = rolGoster(mevcutPersonel.rol).toLocaleUpperCase('tr-TR');
   document.getElementById('ustVardiya').innerHTML = `<b class="ust-ad">${esc(mevcutPersonel.ad_soyad)} · </b><span class="ust-vrd">${mevcutPersonel.vardiya ? mevcutPersonel.vardiya + '. Vardiya' : 'Gündüz Personeli'}</span>`;
   const bas = mevcutPersonel.ad_soyad.split(' ').filter(Boolean).map(x => x[0]).slice(0, 2).join('').toUpperCase();
   document.getElementById('ustAvatar').innerText = bas || '–';
@@ -273,7 +275,7 @@ function aktifSatirHtml(a, durum, sureGizle = false) {
     ? '<span class="rozet r-turuncu" style="font-size:13px;padding:5px 12px;font-weight:800"><span style="font-size:16px;vertical-align:-1px">🚗</span> Yolda</span>'
     : '';
   const saatler = `<span class="aktif-saat">Başlama ${saatYaz(a.baslama_zamani)}${!yolda && a.istasyona_varis_zamani ? ' · Varış ' + saatYaz(a.istasyona_varis_zamani) : ''}</span>`;
-  const meta = [rolAd(a.personel?.rol), a.gorev_aciklamasi].filter(Boolean).map(esc).join(' · ');
+  const meta = [rolGoster(a.personel?.rol), a.gorev_aciklamasi].filter(Boolean).map(esc).join(' · ');
   return `<div class="aktif-satir${yolda ? '' : ' ist'}">
         <div class="aktif-avatar">${esc(bas)}</div>
         <div class="aktif-bilgi">
@@ -574,7 +576,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
         const aralik = b.bitis_zamani ? `${tarihYaz(b.baslama_zamani)} ${saatYaz(b.baslama_zamani)} → ${tarihYaz(b.bitis_zamani)} ${saatYaz(b.bitis_zamani)}` : '';
 
         bHtml += `<div class="onay-item">
-          <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">${esc(rolAd(b.personel.rol))} ${kadroRozet(b.personel.kadro)}</div>
+          <div class="onay-ust"><div><div class="hucre-isim">${esc(b.personel.ad_soyad)}</div><div class="hucre-alt">${esc(rolGoster(b.personel.rol))} ${kadroRozet(b.personel.kadro)}</div>
             ${aralik ? `<div class="hucre-alt" style="margin-top:4px">${esc(aralik)}</div>` : ''}${b.gorev_aciklamasi ? `<div class="hucre-alt">${esc(b.gorev_aciklamasi)}</div>` : ''}</div>
             <div style="text-align:right"><span class="rozet r-turuncu">${dkYaz(b.toplam_dakika)}</span>${ekBilgi}</div></div>
           <div class="onay-btnler"><button type="button" class="btn btn-success" onclick="onayla('${b.id}', 'icap')">✓ Onayla</button><button type="button" class="btn btn-danger" onclick="reddet('${b.id}', 'icap')">✕ Reddet</button></div></div>`;
@@ -734,7 +736,7 @@ function hizliIslemleriCiz(rol, bekleyenSayi) {
   }).join('');
 
   kutu.innerHTML = `<div class="hizli-islem-kart">
-    <div class="hizli-islem-baslik">Hızlı İşlemler <span>${esc(rolAd(rol))}</span></div>
+    <div class="hizli-islem-baslik">Hızlı İşlemler <span>${esc(rolGoster(rol))}</span></div>
     <div class="aksiyon-grid">${butonlar}</div>
   </div>`;
 }
@@ -1961,7 +1963,7 @@ async function raporExcelIndir() {
       const bk = bakiyeHesapla(icapMap[p.id], izinMap[p.id], p.kadro, yil);
       tIcap += bk.toplamDk; tIzin += bk.kullanilanDk;
       const eksi = bk.kalanDk < 0;
-      const row = satirYaz(ws1, r1, [sira, p.ad_soyad, rolAd(p.rol), p.vardiya ? p.vardiya + '. Vardiya' : 'Gündüz', p.kadro ? kadroAd(p.kadro) : '—',
+      const row = satirYaz(ws1, r1, [sira, p.ad_soyad, rolGoster(p.rol), p.vardiya ? p.vardiya + '. Vardiya' : 'Gündüz', p.kadro ? kadroAd(p.kadro) : '—',
         saatOndalik(bk.toplamDk), saatOndalik(bk.kullanilanDk), saatOndalik(bk.kalanDk), dkYaz(bk.kalanDk), eksi ? 'Eksi bakiye' : (bk.toplamDk === 0 ? 'İcap yok' : 'Normal')], k1);
       if (eksi) [8, 9, 10].forEach(c => { row.getCell(c).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFC8102E' } }; });
       r1++; sira++;
@@ -1981,7 +1983,7 @@ async function raporExcelIndir() {
       const dk = i.toplam_dakika || 0; topDk += dk;
       const manuel = String(i.gorev_aciklamasi || '').startsWith('[MANUEL]');
       const acik = String(i.gorev_aciklamasi || '').replace('[MANUEL]', '').trim();
-      satirYaz(ws2, r2, [n + 1, i.personel?.ad_soyad || '—', rolAd(i.personel?.rol), i.personel?.vardiya ? i.personel.vardiya + '. Vardiya' : 'Gündüz', i.personel?.kadro ? kadroAd(i.personel.kadro) : '—',
+      satirYaz(ws2, r2, [n + 1, i.personel?.ad_soyad || '—', rolGoster(i.personel?.rol), i.personel?.vardiya ? i.personel.vardiya + '. Vardiya' : 'Gündüz', i.personel?.kadro ? kadroAd(i.personel.kadro) : '—',
         acik, manuel ? 'Manuel' : 'Panel', excelTarih(i.baslama_zamani), i.bitis_zamani ? excelTarih(i.bitis_zamani) : '', saatOndalik(dk)], k2);
       r2++;
     });
@@ -1997,7 +1999,7 @@ async function raporExcelIndir() {
     let r3 = 5, tIz = 0;
     donemIzinleri.forEach((z, n) => {
       const dk = z.talep_edilen_dakika || 0; tIz += dk;
-      satirYaz(ws3, r3, [n + 1, z.personel?.ad_soyad || '—', rolAd(z.personel?.rol), z.personel?.vardiya ? z.personel.vardiya + '. Vardiya' : 'Gündüz', z.personel?.kadro ? kadroAd(z.personel.kadro) : '—',
+      satirYaz(ws3, r3, [n + 1, z.personel?.ad_soyad || '—', rolGoster(z.personel?.rol), z.personel?.vardiya ? z.personel.vardiya + '. Vardiya' : 'Gündüz', z.personel?.kadro ? kadroAd(z.personel.kadro) : '—',
         excelTarih(z.izin_tarihi + 'T00:00:00'), Math.round((dk / 1440) * 100) / 100, saatOndalik(dk), z.aciklama || ''], k3);
       r3++;
     });
