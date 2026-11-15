@@ -745,12 +745,12 @@ function raporModalAc() {
   const otuzGunOnce = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const html = `<div class="modal aktif" id="raporModal"><div class="modal-content">
     <h3>📊 Raporlama</h3>
-    <p class="alt-not">Onaylanmış icap kayıtlarını tarih aralığına göre CSV olarak indirin.</p>
+    <p class="alt-not">Tüm personelin icap bakiyesi (toplam icap, kullanılan izin, kalan), icap ve izin detayları Excel dosyası olarak indirilir. Bakiye, bitiş tarihinin yılına göre hesaplanır.</p>
     <div class="form-satir">
       <div class="form-grup"><label>Başlangıç</label><input type="date" id="raporBaslangic" value="${otuzGunOnce}"></div>
       <div class="form-grup"><label>Bitiş</label><input type="date" id="raporBitis" value="${bugun}"></div>
     </div>
-    <button type="button" class="btn btn-primary" onclick="raporCsvIndir()">⬇ Detaylı CSV İndir</button>
+    <button type="button" class="btn btn-primary" onclick="raporExcelIndir()">⬇ Excel Raporu İndir</button>
     <button type="button" class="btn btn-link" onclick="document.getElementById('raporModal').remove()">Kapat</button>
   </div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
@@ -1872,37 +1872,146 @@ async function ayarKaydet() {
   }
 }
 
-async function raporCsvIndir() {
+// Supabase tek sorguda en fazla 1000 satır döner: sayfa sayfa tümünü çeker
+async function tumSatirlariGetir(sorguUret) {
+  const hepsi = []; const adim = 1000;
+  for (let bas = 0; ; bas += adim) {
+    const { data, error } = await sorguUret().range(bas, bas + adim - 1);
+    if (error) throw error;
+    hepsi.push(...(data || []));
+    if (!data || data.length < adim) break;
+  }
+  return hepsi;
+}
+// Excel tarih hücresi: yerel saati olduğu gibi yazar (saat dilimi kayması olmasın)
+const excelTarih = z => { const d = new Date(z); return new Date(d.getTime() - d.getTimezoneOffset() * 60000); };
+const saatOndalik = dk => Math.round(((dk || 0) / 60) * 100) / 100;
+
+async function raporExcelIndir() {
   const bas = document.getElementById('raporBaslangic').value;
   const bit = document.getElementById('raporBitis').value;
   if (!bas || !bit) return toast("Lütfen tarih aralığı seçin.");
-  const basISO = new Date(bas + "T00:00:00").toISOString();
-  const bitISO = new Date(bit + "T23:59:59").toISOString();
+  if (bas > bit) return toast("Başlangıç tarihi bitişten sonra olamaz.");
+  try {
+    toast("Rapor hazırlanıyor...", "basari");
+    await exceljsYukle();
+    const yil = parseInt(bit.slice(0, 4), 10);                 // bakiye yılı = bitiş tarihinin yılı
+    const basISO = new Date(bas + "T00:00:00").toISOString();
+    const bitISO = new Date(bit + "T23:59:59").toISOString();
 
-  const { data: icaps } = await sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol, kadro)').eq('durum', 'onaylandi').gte('baslama_zamani', basISO).lte('baslama_zamani', bitISO).order('baslama_zamani', { ascending: true });
-  if (!icaps || !icaps.length) return toast("Seçilen tarihlerde onaylanmış icap yok.");
+    const [personeller, yilIcaplari, yilIzinleri, donemIcaplari, donemIzinleri] = await Promise.all([
+      tumSatirlariGetir(() => sb.from('personel').select('id, ad_soyad, rol, kadro, vardiya').order('ad_soyad', { ascending: true })),
+      tumSatirlariGetir(() => sb.from('icap_gorevleri').select('personel_id, baslama_zamani, toplam_dakika').eq('durum', 'onaylandi').gte('baslama_zamani', `${yil}-01-01T00:00:00`).lt('baslama_zamani', `${yil + 1}-01-01T00:00:00`).order('baslama_zamani', { ascending: true })),
+      tumSatirlariGetir(() => sb.from('icap_izin_talepleri').select('personel_id, izin_tarihi, talep_edilen_dakika').eq('durum', 'onaylandi').gte('izin_tarihi', `${yil}-01-01`).lte('izin_tarihi', `${yil}-12-31`).order('izin_tarihi', { ascending: true })),
+      tumSatirlariGetir(() => sb.from('icap_gorevleri').select('*, personel:personel_id(ad_soyad, rol, kadro, vardiya)').eq('durum', 'onaylandi').gte('baslama_zamani', basISO).lte('baslama_zamani', bitISO).order('baslama_zamani', { ascending: true })),
+      tumSatirlariGetir(() => sb.from('icap_izin_talepleri').select('*, personel:personel_id(ad_soyad, rol, kadro, vardiya)').eq('durum', 'onaylandi').gte('izin_tarihi', bas).lte('izin_tarihi', bit).order('izin_tarihi', { ascending: true }))
+    ]);
 
-  let csv = "Personel,Rol,Kadro,Gorev Aciklamasi,Baslangic,Bitis,Icap Suresi (Saat),Hesaplanan Gun Katkisi (Isci)\n";
-  const ozet = {};
-  let topDk = 0;
-  icaps.forEach(i => {
-    const dk = i.toplam_dakika || 0;
-    const isci = isIsci(i.personel.kadro);
-    topDk += dk;
-    const o = ozet[i.personel_id] || (ozet[i.personel_id] = { ad: i.personel.ad_soyad, kadro: i.personel.kadro, dk: 0 });
-    o.dk += dk;
-    const aciklama = (i.gorev_aciklamasi || "").replace(/"/g, '""');
-    csv += `"${i.personel.ad_soyad}","${rolAd(i.personel.rol)}","${kadroAd(i.personel.kadro)}","${aciklama}","${new Date(i.baslama_zamani).toLocaleString('tr-TR')}","${new Date(i.bitis_zamani).toLocaleString('tr-TR')}",${(dk / 60).toFixed(2)},${isci ? icapGunKatki(dk).toFixed(2) : ''}\n`;
-  });
-  csv += `"TOPLAM","","","","","",${(topDk / 60).toFixed(2)},\n\n`;
-  csv += "OZET (secilen donem),Kadro,Toplam Icap (Saat),Hesaplanan Gun (Isci),Hak Edilen Izin (Saat)\n";
-  Object.values(ozet).forEach(o => {
-    if (isIsci(o.kadro)) { const g = iscideGunHak(o.dk); csv += `"${o.ad}","${kadroAd(o.kadro)}",${(o.dk / 60).toFixed(2)},${g},${g * 8}\n`; }
-    else csv += `"${o.ad}","${kadroAd(o.kadro)}",${(o.dk / 60).toFixed(2)},,${(o.dk / 60).toFixed(2)}\n`;
-  });
-  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `icap_raporu_${bas}_${bit}.csv`; link.click();
-  document.getElementById('raporModal')?.remove();
+    // ---- Excel iskeleti ----
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Seydişehir İtfaiyesi İcap Takip Sistemi'; wb.created = new Date();
+    const LACI = 'FF0F1823', KIRMIZI = 'FFC8102E', GRI = 'FFF3F5F8', CIZGI = { style: 'thin', color: { argb: 'FFD5DCE5' } };
+    const kenar = { top: CIZGI, left: CIZGI, bottom: CIZGI, right: CIZGI };
+    const trTarih = d => { const x = new Date(d); return `${String(x.getDate()).padStart(2, '0')}.${String(x.getMonth() + 1).padStart(2, '0')}.${x.getFullYear()}`; };
+    const trBas = trTarih(bas + 'T00:00:00'), trBit = trTarih(bit + 'T00:00:00');
+
+    const sayfaKur = (ad, baslik, alt, kolonlar) => {
+      const ws = wb.addWorksheet(ad, { views: [{ state: 'frozen', ySplit: 4, showGridLines: false }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 } });
+      ws.columns = kolonlar.map(k => ({ width: k.w }));
+      const son = kolonlar.length;
+      ws.mergeCells(1, 1, 1, son); ws.mergeCells(2, 1, 2, son);
+      const t = ws.getCell(1, 1); t.value = baslik; t.font = { name: 'Calibri', size: 15, bold: true, color: { argb: 'FFFFFFFF' } }; t.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      for (let c = 1; c <= son; c++) ws.getCell(1, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LACI } };
+      ws.getRow(1).height = 30;
+      const a = ws.getCell(2, 1); a.value = alt; a.font = { name: 'Calibri', size: 10.5, italic: true, color: { argb: 'FF5B6675' } }; a.alignment = { horizontal: 'left', indent: 1 };
+      const h = ws.getRow(4); h.height = 34;
+      kolonlar.forEach((k, i) => {
+        const c = h.getCell(i + 1); c.value = k.b;
+        c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: KIRMIZI } };
+        c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }; c.border = kenar;
+      });
+      return ws;
+    };
+    const satirYaz = (ws, satirNo, degerler, kolonlar, vurgu) => {
+      const r = ws.getRow(satirNo); r.height = 22;
+      degerler.forEach((v, i) => {
+        const c = r.getCell(i + 1); c.value = v; c.border = kenar;
+        c.font = { name: 'Calibri', size: 11, bold: !!vurgu };
+        c.alignment = { vertical: 'middle', horizontal: kolonlar[i].h || 'left', wrapText: !!kolonlar[i].wrap, indent: (kolonlar[i].h || 'left') === 'left' ? 1 : 0 };
+        if (kolonlar[i].fmt) c.numFmt = kolonlar[i].fmt;
+        if (vurgu) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6EBF2' } };
+        else if (satirNo % 2 === 1) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GRI } };
+      });
+      return r;
+    };
+
+    // ---- 1) BAKİYE ÖZETİ (tüm personel, bakiye yılı) ----
+    const k1 = [
+      { b: 'Sıra', w: 6, h: 'center' }, { b: 'Ad Soyad', w: 28 }, { b: 'Rol', w: 18 }, { b: 'Vardiya', w: 10, h: 'center' }, { b: 'Kadro', w: 11, h: 'center' },
+      { b: 'Toplam İcap Süresi (Saat)', w: 16, h: 'right', fmt: '0.00' }, { b: 'Kullanılan İzin (Saat)', w: 16, h: 'right', fmt: '0.00' },
+      { b: 'Kalan İcap Bakiyesi (Saat)', w: 17, h: 'right', fmt: '0.00' }, { b: 'Kalan Bakiye', w: 20 }, { b: 'Durum', w: 14, h: 'center' }
+    ];
+    const ws1 = sayfaKur('Bakiye Özeti', `İCAP BAKİYE ÖZETİ – ${yil} YILI`, `Onaylı icap ve izinler üzerinden · Bakiyeler her yıl 1 Ocak'ta sıfırlanır · Rapor tarihi: ${trTarih(new Date())}`, k1);
+    const icapMap = {}, izinMap = {};
+    yilIcaplari.forEach(i => (icapMap[i.personel_id] = icapMap[i.personel_id] || []).push(i));
+    yilIzinleri.forEach(i => (izinMap[i.personel_id] = izinMap[i.personel_id] || []).push(i));
+    let r1 = 5, sira = 1, tIcap = 0, tIzin = 0;
+    personeller.forEach(p => {
+      const bk = bakiyeHesapla(icapMap[p.id], izinMap[p.id], p.kadro, yil);
+      tIcap += bk.toplamDk; tIzin += bk.kullanilanDk;
+      const eksi = bk.kalanDk < 0;
+      const row = satirYaz(ws1, r1, [sira, p.ad_soyad, rolAd(p.rol), p.vardiya ? p.vardiya + '. Vardiya' : 'Gündüz', p.kadro ? kadroAd(p.kadro) : '—',
+        saatOndalik(bk.toplamDk), saatOndalik(bk.kullanilanDk), saatOndalik(bk.kalanDk), dkYaz(bk.kalanDk), eksi ? 'Eksi bakiye' : (bk.toplamDk === 0 ? 'İcap yok' : 'Normal')], k1);
+      if (eksi) [8, 9, 10].forEach(c => { row.getCell(c).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFC8102E' } }; });
+      r1++; sira++;
+    });
+    satirYaz(ws1, r1, ['', 'TOPLAM', '', '', '', saatOndalik(tIcap), saatOndalik(tIzin), saatOndalik(tIcap - tIzin), dkYaz(tIcap - tIzin), ''], k1, true);
+    ws1.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: k1.length } };
+
+    // ---- 2) İCAP DETAYI (seçilen tarih aralığı) ----
+    const k2 = [
+      { b: 'Sıra', w: 6, h: 'center' }, { b: 'Ad Soyad', w: 28 }, { b: 'Rol', w: 18 }, { b: 'Vardiya', w: 10, h: 'center' }, { b: 'Kadro', w: 11, h: 'center' },
+      { b: 'Görev / Açıklama', w: 24, wrap: true }, { b: 'Giriş Türü', w: 12, h: 'center' },
+      { b: 'Başlama', w: 18, h: 'center', fmt: 'dd.mm.yyyy hh:mm' }, { b: 'Bitiş', w: 18, h: 'center', fmt: 'dd.mm.yyyy hh:mm' }, { b: 'Süre (Saat)', w: 12, h: 'right', fmt: '0.00' }
+    ];
+    const ws2 = sayfaKur('İcap Detayı', 'İCAP KAYITLARI (ONAYLI)', `Dönem: ${trBas} – ${trBit}`, k2);
+    let r2 = 5, topDk = 0;
+    donemIcaplari.forEach((i, n) => {
+      const dk = i.toplam_dakika || 0; topDk += dk;
+      const manuel = String(i.gorev_aciklamasi || '').startsWith('[MANUEL]');
+      const acik = String(i.gorev_aciklamasi || '').replace('[MANUEL]', '').trim();
+      satirYaz(ws2, r2, [n + 1, i.personel?.ad_soyad || '—', rolAd(i.personel?.rol), i.personel?.vardiya ? i.personel.vardiya + '. Vardiya' : 'Gündüz', i.personel?.kadro ? kadroAd(i.personel.kadro) : '—',
+        acik, manuel ? 'Manuel' : 'Panel', excelTarih(i.baslama_zamani), i.bitis_zamani ? excelTarih(i.bitis_zamani) : '', saatOndalik(dk)], k2);
+      r2++;
+    });
+    satirYaz(ws2, r2, ['', 'TOPLAM', '', '', '', '', '', '', '', saatOndalik(topDk)], k2, true);
+    ws2.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: k2.length } };
+
+    // ---- 3) İZİN DETAYI (seçilen tarih aralığı) ----
+    const k3 = [
+      { b: 'Sıra', w: 6, h: 'center' }, { b: 'Ad Soyad', w: 28 }, { b: 'Rol', w: 18 }, { b: 'Vardiya', w: 10, h: 'center' }, { b: 'Kadro', w: 11, h: 'center' },
+      { b: 'İzin Tarihi', w: 14, h: 'center', fmt: 'dd.mm.yyyy' }, { b: 'Süre (Gün)', w: 11, h: 'right', fmt: '0.##' }, { b: 'Süre (Saat)', w: 12, h: 'right', fmt: '0.00' }, { b: 'Açıklama', w: 34, wrap: true }
+    ];
+    const ws3 = sayfaKur('İzin Detayı', 'KULLANILAN İZİNLER (ONAYLI)', `Dönem: ${trBas} – ${trBit}`, k3);
+    let r3 = 5, tIz = 0;
+    donemIzinleri.forEach((z, n) => {
+      const dk = z.talep_edilen_dakika || 0; tIz += dk;
+      satirYaz(ws3, r3, [n + 1, z.personel?.ad_soyad || '—', rolAd(z.personel?.rol), z.personel?.vardiya ? z.personel.vardiya + '. Vardiya' : 'Gündüz', z.personel?.kadro ? kadroAd(z.personel.kadro) : '—',
+        excelTarih(z.izin_tarihi + 'T00:00:00'), Math.round((dk / 1440) * 100) / 100, saatOndalik(dk), z.aciklama || ''], k3);
+      r3++;
+    });
+    satirYaz(ws3, r3, ['', 'TOPLAM', '', '', '', '', Math.round((tIz / 1440) * 100) / 100, saatOndalik(tIz), ''], k3, true);
+    ws3.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: k3.length } };
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `icap_raporu_${bas}_${bit}.xlsx`; link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+    document.getElementById('raporModal')?.remove();
+    toast("Excel raporu indirildi.", "basari");
+    await logEkle("Rapor İndirdi", `${bas} – ${bit}`);
+  } catch (e) { toast("Rapor oluşturulamadı: " + (e.message || e)); }
 }
 
 // ---------- YEDEKLEME / GERİ YÜKLEME ----------
