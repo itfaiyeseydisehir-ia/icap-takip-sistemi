@@ -499,7 +499,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       <details class="manuel-kutu" id="mnDetay">
         <summary><span class="manuel-simge">🕒</span><span class="manuel-baslik">Manuel İcap Girişi</span><span class="manuel-ok">⌄</span></summary>
         <div class="manuel-ic">
-          <div class="manuel-not">İcap görevini panelden başlatmayı unutursanız manuel giriş panelinden başlama ve bitiş tarih ve saatlerini girebilirsiniz. Kaydedilen bilgiler onaya gider.</div>
+          <div class="manuel-not">İcap görevini panelden başlatmayı yada bitirmeyi unutursanız manuel giriş panelinden başlama - bitiş saat ve tarih girebilirsiniz. Kaydedilen bilgiler onaya gider.</div>
           <div class="manuel-grup"><div class="manuel-grup-baslik">BAŞLAMA</div>
             <div class="manuel-satir">
               <label><span>Tarih</span>${tarihInputHtml('mnGunB', 'manuelOzetGuncelle()')}</label>
