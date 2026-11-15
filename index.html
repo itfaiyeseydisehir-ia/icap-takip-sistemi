@@ -474,6 +474,50 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 .icap-sec-bilgi b{font-weight:800}
 .icap-sec-sure{flex:none;font-weight:800;font-size:13px;color:#1d4ed8;text-align:right;text-transform:none;white-space:nowrap}
 .icap-sec-sure small{display:block;font-weight:600;color:#64748b;font-size:11px}
+
+/* ---------- YENİ İCAP GÖREVİ KARTI (açık tema, diğer kartlarla uyumlu) ---------- */
+.icap-kart.icap-yeni{background:#fff;color:var(--text);border:1px solid var(--line);box-shadow:var(--shadow);padding:18px 16px 16px}
+.icap-yeni .icap-baslik{color:var(--text);font-size:17px}
+.icap-yeni .icap-alt{color:var(--text-2)}
+.icap-yeni .durum-pil.hazir{background:#e6f7ef;color:#0e7a55;border-color:#a8e0c6}
+.icap-yeni .durum-pil.kilit{background:#f1f4f8;color:#5b6675;border-color:#dde3ea}
+.icap-yeni .uyari{background:var(--red-soft);color:var(--red);border-color:#f4c7cc}
+.icap-yeni .adim-etiket{color:#6b7787;font-size:11px;letter-spacing:1px;margin:4px 2px 10px}
+
+/* görev türü kutuları */
+.icap-yeni .hizli-sec{gap:10px;margin-bottom:16px}
+.icap-yeni .hizli-btn{--tint:#fff3e8;background:#f6f8fb;color:var(--text);border:1.5px solid #e3e8ee;border-radius:18px;min-height:142px;padding:16px 4px 12px;gap:11px;justify-content:center;box-shadow:0 1px 2px rgba(15,24,35,.04);-webkit-tap-highlight-color:transparent;transition:transform .22s cubic-bezier(.34,1.56,.64,1),background .2s,border-color .2s,box-shadow .2s,color .2s}
+.icap-yeni .hizli-btn:nth-child(1){--tint:#fff1e6}
+.icap-yeni .hizli-btn:nth-child(2){--tint:#fdebed}
+.icap-yeni .hizli-btn:nth-child(3){--tint:#e8f3ff}
+.icap-yeni .hizli-btn img{width:68px;height:68px;padding:9px;border-radius:20px;background:var(--tint);box-shadow:0 6px 14px rgba(15,24,35,.10);transition:transform .25s cubic-bezier(.34,1.56,.64,1),background .2s,box-shadow .2s}
+.icap-yeni .hizli-btn span{font-size:12.5px;font-weight:800;min-height:2.5em;align-items:center;letter-spacing:.1px}
+.icap-yeni .hizli-btn:hover{background:#f0f3f8}
+.icap-yeni .hizli-btn:active{transform:scale(.95)}
+.icap-yeni .hizli-btn.secili{background:linear-gradient(150deg,#e11d48,#a30d26);color:#fff;border-color:#ff8a98;box-shadow:0 12px 26px rgba(200,16,46,.42);transform:translateY(-4px);animation:ikon-tikla .45s cubic-bezier(.34,1.56,.64,1)}
+.icap-yeni .hizli-btn.secili img{background:#fff;transform:scale(1.08);box-shadow:0 10px 20px rgba(0,0,0,.28)}
+.icap-yeni .hizli-btn.secili::after{content:"✓";top:8px;right:8px;width:20px;height:20px;border-radius:50%;background:#fff;color:#c8102e;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.icap-yeni .hizli-btn:disabled{opacity:.45;transform:none;animation:none}
+@keyframes ikon-tikla{0%{transform:scale(.93)}55%{transform:translateY(-8px) scale(1.04)}100%{transform:translateY(-4px) scale(1)}}
+@media (prefers-reduced-motion:reduce){.icap-yeni .hizli-btn,.icap-yeni .hizli-btn img{transition:none;animation:none!important}}
+
+/* açıklama alanı */
+.icap-kart.icap-yeni textarea{background:#f6f8fb;border:1.5px solid #e3e8ee;color:var(--text);border-radius:14px;min-height:62px;padding:13px 14px;font-size:14px;margin-bottom:14px}
+.icap-yeni textarea::placeholder{color:#97a2b1}
+.icap-kart.icap-yeni textarea:focus{background:#fff;border-color:#e11d48;box-shadow:0 0 0 4px rgba(225,29,72,.12)}
+.icap-yeni .icap-baslat:disabled{background:#e3e8ee;color:#97a2b1;box-shadow:none}
+.icap-yeni .icap-baslat{padding:20px 12px;border-radius:16px}
+
+/* içteki manuel giriş bölümü açık zeminde okunur olsun */
+.icap-yeni .manuel-not{color:#8a5a00;background:#fff6e5;border-color:#f3d9a4}
+.icap-yeni .manuel-grup{background:#f6f8fb;border-color:#e3e8ee}
+.icap-yeni .manuel-grup-baslik{color:#c2570c}
+.icap-yeni .manuel-satir label span{color:#5b6675}
+.icap-yeni .manuel-kutu input[type=date],.icap-yeni .manuel-kutu input[type=time]{background:#fff;color:var(--text);border-color:#d5dce5;color-scheme:light}
+.icap-yeni .manuel-kutu input[type=date]:focus,.icap-yeni .manuel-kutu input[type=time]:focus{border-color:#f08a24;box-shadow:0 0 0 3px rgba(240,138,36,.2)}
+.icap-yeni .manuel-ozet{background:#f1f5f9;color:#475569}
+.icap-yeni .manuel-ozet.tamam{background:#e3f6ec;color:#17653f}
+.icap-yeni .manuel-ozet.hata{background:#fde7ea;color:#9a0c23}
 </style>
 </head>
 <body>
