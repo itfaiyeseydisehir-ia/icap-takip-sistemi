@@ -711,7 +711,6 @@ function hizliIslemleriCiz(rol, bekleyenSayi) {
   const tuslar = [];
   const ekle = (renk, ikon, metin, onclick, sayac = 0) => tuslar.push({ renk, ikon, metin, onclick, sayac });
 
-  if (yonetici) ekle('a-mavi', IKON.ekip, 'İcap Personeli Seç', 'hazirIcapciModalAc()');
   ekle('a-yesil', IKON.bakiye, 'Bakiyem', "panelAc('kisiselBakiyeKart','İcap Bakiyem')");
   ekle('a-mor', IKON.izin, 'İzin Talebi', 'izinModalAc()');
   if (yonetici) {
