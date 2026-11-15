@@ -480,7 +480,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
       { metin: 'Diğer Görevler', resim: IKN_DIGER, emoji: '🚰' }
     ];
 
-    gorevHtml += `<div class="icap-kart ${!baslatabilir ? 'kilitli' : ''}">
+    gorevHtml += `<div class="icap-kart icap-yeni ${!baslatabilir ? 'kilitli' : ''}">
       <div class="icap-ust"><div class="icap-ikon">🚨</div>
         <div class="icap-ust-metin"><div class="icap-baslik">Yeni İcap Görevi</div><div class="icap-alt">Görev türünü seçin, tek dokunuşla başlatın</div></div>
         <span class="durum-pil ${baslatabilir ? 'hazir' : 'kilit'}">${baslatabilir ? '● HAZIR' : '🔒 KİLİTLİ'}</span></div>
