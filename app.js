@@ -876,9 +876,10 @@ async function widgetBildirimGuncelle(sureStr, zorla = false) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     if (!zorla && Date.now() - widget.sonBildirim < 30000) return; // en fazla 30 sn'de bir
     widget.sonBildirim = Date.now();
-    const kisaSure = sureStr.slice(0, 5); // SS:DD
+    // Standart Android bildirimi saniyede bir yenilenmez; düşük pil/veri tüketimi için
+    // 30 saniyede bir güncellenir. Gerçek zamanlı ilerleme Media Session konumundan gelir.
     const secenek = {
-      body: `Süre: ${kisaSure}  ·  Başlama: ${saatYaz(widget.baslama)}\nSeydişehir İtfaiyesi İcap Takip`,
+      body: `Geçen süre: ${sureStr}  ·  Başlama: ${saatYaz(widget.baslama)}\nSeydişehir İtfaiyesi İcap Takip`,
       tag: 'icap-aktif', renotify: false, silent: true, requireInteraction: true,
       icon: IKN_YANGIN, badge: widgetRozetUrl(), timestamp: new Date(widget.baslama).getTime()
     };
@@ -923,9 +924,16 @@ function widgetGuncelle(sn, sureStr) {
         navigator.mediaSession.metadata.title = `İcap Görevi: ${sureStr}`;
       }
       navigator.mediaSession.playbackState = 'playing';
-      // Bildirim kartındaki ilerleme çubuğu geçen süreyi kendiliğinden saydırır
+      // Sabit süre kullanılır: önceki kodda duration her saniye sn ile birlikte
+      // büyüdüğü için ilerleme çubuğunun yüzdesi neredeyse sabit kalıyordu.
+      // Medya oturumu aktifken Android, konumu arka planda kendi saatine göre ilerletebilir.
       if (navigator.mediaSession.setPositionState) {
-        navigator.mediaSession.setPositionState({ duration: Math.max(sn + 43200, 43200), position: sn, playbackRate: 1 });
+        const toplamSure = 7 * 24 * 60 * 60; // 7 günlük sabit gösterim aralığı
+        navigator.mediaSession.setPositionState({
+          duration: toplamSure,
+          position: Math.min(Math.max(0, sn), toplamSure - 1),
+          playbackRate: 1
+        });
       }
     } catch (e) { console.error('mediaSession hatası', e); }
   }
