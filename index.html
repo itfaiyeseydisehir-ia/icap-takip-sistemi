@@ -517,6 +517,187 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 .icap-yeni .manuel-ozet{background:#f1f5f9;color:#475569}
 .icap-yeni .manuel-ozet.tamam{background:#e3f6ec;color:#17653f}
 .icap-yeni .manuel-ozet.hata{background:#fde7ea;color:#9a0c23}
+
+
+/* ============================================================
+   YENİ İCAP GÖREVİ — MODERN MOBİL TASARIM KATMANI
+   Yalnızca .icap-kart.icap-yeni alanını etkiler.
+   HTML/JS işleyişi, buton olayları ve diğer paneller değiştirilmez.
+============================================================ */
+.icap-kart.icap-yeni{
+  --yeni-ink:#f7fbff;
+  position:relative;
+  isolation:isolate;
+  padding:22px 18px 18px;
+  border:1px solid rgba(255,255,255,.42);
+  border-radius:30px;
+  background:
+    radial-gradient(ellipse at 92% 5%,rgba(77,219,213,.25),transparent 34%),
+    radial-gradient(ellipse at 0% 100%,rgba(31,111,173,.30),transparent 42%),
+    linear-gradient(145deg,#123d59 0%,#126b7c 48%,#164d69 100%);
+  color:var(--yeni-ink);
+  box-shadow:0 18px 38px rgba(12,57,78,.22),inset 0 1px 0 rgba(255,255,255,.22);
+  overflow:hidden;
+}
+.icap-kart.icap-yeni::before{
+  height:5px;
+  background:linear-gradient(90deg,#e11d48 0%,#ff765f 38%,#ffd166 70%,#55d6c2 100%);
+  z-index:2;
+}
+.icap-kart.icap-yeni::after{
+  content:"";
+  position:absolute;
+  z-index:-1;
+  width:230px;height:230px;
+  right:-115px;top:90px;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:50%;
+  box-shadow:0 0 0 22px rgba(255,255,255,.025),0 0 0 46px rgba(255,255,255,.02);
+  pointer-events:none;
+}
+.icap-kart.icap-yeni.kilitli{
+  background:linear-gradient(145deg,#596b7d,#394b60);
+  border-color:rgba(255,255,255,.25);
+}
+.icap-yeni .icap-ust{
+  position:relative;z-index:1;
+  gap:13px;margin:3px 0 23px;
+}
+.icap-yeni .icap-ikon{
+  width:58px;height:58px;flex:0 0 58px;
+  border-radius:20px;
+  background:linear-gradient(145deg,#ff526d,#bd1237);
+  border:1px solid rgba(255,255,255,.32);
+  box-shadow:0 9px 22px rgba(7,24,42,.28),inset 0 1px 0 rgba(255,255,255,.25);
+  font-size:27px;
+}
+.icap-yeni .icap-baslik{font-size:clamp(17px,4.8vw,21px);font-weight:850;letter-spacing:-.45px;line-height:1.15;color:#fff}
+.icap-yeni .icap-alt{font-size:13px;line-height:1.5;color:rgba(239,249,255,.82);margin-top:5px}
+.icap-yeni .durum-pil{font-size:10px;letter-spacing:1px;padding:8px 11px;backdrop-filter:blur(8px)}
+.icap-yeni .durum-pil.hazir{background:rgba(56,211,155,.16);color:#c6ffe9;border:1px solid rgba(145,255,209,.55)}
+.icap-yeni .durum-pil.kilit{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255,255,.28)}
+.icap-yeni .adim-etiket{
+  position:relative;z-index:1;
+  margin:0 3px 11px;
+  color:#d8f4f5;
+  font-size:10px;font-weight:850;letter-spacing:1.5px;
+}
+.icap-yeni .hizli-sec{position:relative;z-index:1;gap:10px;margin-bottom:20px}
+.icap-yeni .hizli-btn{
+  min-width:0;min-height:132px;
+  padding:11px 7px 0;gap:8px;
+  border-radius:21px;
+  border:1px solid rgba(255,255,255,.82);
+  background:linear-gradient(160deg,#fff 0%,#f2f7fb 100%);
+  color:#183e60;
+  box-shadow:0 9px 20px rgba(3,27,46,.20),inset 0 1px 0 #fff;
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background .18s ease;
+}
+.icap-yeni .hizli-btn img{
+  width:clamp(49px,15vw,70px);height:clamp(49px,15vw,70px);
+  margin:0 auto 2px;padding:0;
+  border-radius:14px;background:transparent;box-shadow:none;
+  object-fit:contain;
+}
+.icap-yeni .hizli-btn span{
+  display:flex;align-items:center;justify-content:center;
+  width:calc(100% + 14px);min-height:45px;height:auto;flex:1 0 45px;
+  margin:0 -7px;padding:7px 4px;
+  border-top:1px solid #e4ebf2;
+  border-radius:0 0 19px 19px;
+  background:#edf3f8;color:#1b456a;
+  font-size:clamp(11px,3.1vw,13px);font-weight:850;line-height:1.18;
+  text-align:center;letter-spacing:-.1px;
+}
+.icap-yeni .hizli-btn:hover{background:#fff;box-shadow:0 12px 24px rgba(3,27,46,.25)}
+.icap-yeni .hizli-btn:active{transform:scale(.97)}
+.icap-yeni .hizli-btn.secili{
+  transform:translateY(-4px);
+  border:2px solid #ffd4dc;
+  background:linear-gradient(155deg,#fff 0%,#fff1f4 100%);
+  box-shadow:0 0 0 3px rgba(255,255,255,.15),0 13px 26px rgba(4,24,42,.30);
+}
+.icap-yeni .hizli-btn.secili img{transform:scale(1.07)}
+.icap-yeni .hizli-btn.secili span{background:linear-gradient(90deg,#c91842,#e83b5e);color:#fff;border-top-color:rgba(255,255,255,.3)}
+.icap-yeni .hizli-btn.secili::after{
+  content:"✓";position:absolute;top:7px;right:7px;
+  display:flex;align-items:center;justify-content:center;
+  width:21px;height:21px;border-radius:50%;
+  background:#16a36d;color:#fff;font-size:12px;font-weight:900;
+  box-shadow:0 3px 9px rgba(0,0,0,.2);
+}
+.icap-yeni .hizli-btn:disabled{opacity:.42;filter:grayscale(.2);transform:none;box-shadow:none}
+.icap-kart.icap-yeni textarea{
+  position:relative;z-index:1;
+  min-height:86px;padding:15px 16px;margin-bottom:16px;
+  border:1px solid rgba(255,255,255,.8);border-radius:20px;
+  background:rgba(255,255,255,.97);color:#182b3d;
+  font-size:14px;line-height:1.5;
+  box-shadow:0 7px 18px rgba(4,28,45,.12),inset 0 1px 2px rgba(15,35,55,.04);
+}
+.icap-yeni textarea::placeholder{color:#8795a5}
+.icap-kart.icap-yeni textarea:focus{border-color:#8be4dc;box-shadow:0 0 0 4px rgba(139,228,220,.2),0 8px 20px rgba(4,28,45,.13)}
+.icap-yeni .icap-baslat{
+  position:relative;z-index:1;
+  min-height:76px;padding:18px 12px;
+  border:1.5px solid rgba(255,255,255,.85);border-radius:23px;
+  background:linear-gradient(115deg,#20c779 0%,#0e9b67 55%,#087d58 100%);
+  box-shadow:0 11px 23px rgba(0,35,39,.26),inset 0 1px 0 rgba(255,255,255,.35);
+  font-size:clamp(15px,4.3vw,19px);font-weight:900;letter-spacing:.35px;
+  text-shadow:0 1px 1px rgba(0,0,0,.12);
+}
+.icap-yeni .icap-baslat:active{transform:translateY(1px) scale(.99);box-shadow:0 5px 12px rgba(0,35,39,.2)}
+.icap-yeni .icap-baslat:disabled{background:linear-gradient(120deg,#8294a3,#667889);border-color:rgba(255,255,255,.35);color:rgba(255,255,255,.8);box-shadow:none}
+.icap-yeni .manuel-kutu{
+  position:relative;z-index:1;
+  margin-top:16px;border:1px solid rgba(255,255,255,.35);
+  border-radius:22px;overflow:hidden;
+  background:rgba(255,255,255,.075);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+}
+.icap-yeni .manuel-kutu summary{
+  display:flex;align-items:center;gap:11px;
+  min-height:68px;padding:13px 16px;
+  list-style:none;cursor:pointer;
+  background:linear-gradient(110deg,#f59a28,#df6817 65%,#c64d13);
+  color:#fff;
+  font-weight:850;
+  transition:filter .18s ease;
+}
+.icap-yeni .manuel-kutu summary::-webkit-details-marker{display:none}
+.icap-yeni .manuel-kutu summary:active{filter:brightness(.96)}
+.icap-yeni .manuel-simge{
+  display:flex;align-items:center;justify-content:center;
+  width:39px;height:39px;flex:0 0 39px;
+  border-radius:14px;background:rgba(255,255,255,.2);
+  border:1px solid rgba(255,255,255,.3);font-size:20px;
+}
+.icap-yeni .manuel-baslik{flex:1;font-size:clamp(14px,4vw,17px);letter-spacing:.05px}
+.icap-yeni .manuel-ok{font-size:25px;line-height:1;transition:transform .2s ease}
+.icap-yeni .manuel-kutu[open] .manuel-ok{transform:rotate(180deg)}
+.icap-yeni .manuel-ic{padding:14px;background:rgba(5,31,48,.22)}
+.icap-yeni .manuel-not{padding:11px 12px;border:1px solid #f4d69b;border-radius:14px;background:#fff7e8;color:#85530a;font-size:12px;line-height:1.5}
+.icap-yeni .manuel-grup{padding:12px;border:1px solid #e3eaf1;border-radius:16px;background:#f8fafc}
+.icap-yeni .manuel-grup-baslik{color:#b85c12;font-size:10px;letter-spacing:1.2px}
+.icap-yeni .manuel-satir label span{color:#526174}
+.icap-yeni .manuel-kutu input[type=date],.icap-yeni .manuel-kutu input[type=time]{min-height:48px;border-radius:13px;background:#fff;color:#182b3d;border-color:#d9e2eb;color-scheme:light}
+.icap-yeni .manuel-ozet{border-radius:14px;background:#edf3f8;color:#405268;padding:11px 12px;font-size:12px}
+.icap-yeni .manuel-ozet.tamam{background:#e3f7ed;color:#176343}
+.icap-yeni .manuel-ozet.hata{background:#fde8eb;color:#9a0c23}
+.icap-yeni .manuel-kaydet{border-radius:16px;min-height:54px;background:linear-gradient(110deg,#f59a28,#d65b14);box-shadow:0 7px 16px rgba(146,66,10,.2);font-size:14px}
+.icap-yeni .uyari{position:relative;z-index:1;border-radius:15px}
+@media(max-width:390px){
+  .icap-kart.icap-yeni{padding:19px 13px 14px;border-radius:25px}
+  .icap-yeni .icap-ust{gap:9px;margin-bottom:20px}
+  .icap-yeni .icap-ikon{width:49px;height:49px;flex-basis:49px;border-radius:17px;font-size:23px}
+  .icap-yeni .durum-pil{padding:6px 8px;font-size:9px}
+  .icap-yeni .hizli-sec{gap:7px}
+  .icap-yeni .hizli-btn{min-height:119px;border-radius:18px;padding-top:9px}
+  .icap-yeni .hizli-btn span{width:calc(100% + 14px);border-radius:0 0 16px 16px}
+  .icap-yeni .icap-baslat{min-height:68px}
+}
+@media(prefers-reduced-motion:reduce){.icap-yeni *{transition:none!important;animation:none!important}}
+
 </style>
 </head>
 <body>
