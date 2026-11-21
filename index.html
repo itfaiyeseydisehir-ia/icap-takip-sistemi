@@ -698,6 +698,36 @@ textarea{min-height:76px;margin-bottom:12px;resize:vertical}
 }
 @media(prefers-reduced-motion:reduce){.icap-yeni *{transition:none!important;animation:none!important}}
 
+/* 21.11.2026 - Görev türü kartları: daha kısa, daha dengeli mobil ölçü */
+.icap-yeni .hizli-sec{gap:9px;margin-bottom:18px}
+.icap-yeni .hizli-btn{
+  min-height:104px;
+  padding:7px 6px 0;
+  gap:4px;
+  border-radius:19px;
+}
+.icap-yeni .hizli-btn img{
+  width:clamp(45px,13vw,60px);
+  height:clamp(45px,13vw,60px);
+  margin:0 auto 1px;
+}
+.icap-yeni .hizli-btn span{
+  min-height:37px;
+  height:auto;
+  flex:0 0 37px;
+  padding:5px 3px;
+  font-size:clamp(10px,2.9vw,12px);
+  line-height:1.15;
+}
+.icap-yeni .hizli-btn.secili{transform:translateY(-2px)}
+.icap-yeni .hizli-btn.secili::after{top:5px;right:5px;width:19px;height:19px}
+@media(max-width:390px){
+  .icap-yeni .hizli-btn{min-height:96px;padding-top:6px;border-radius:17px}
+  .icap-yeni .hizli-btn img{width:clamp(42px,12vw,54px);height:clamp(42px,12vw,54px)}
+  .icap-yeni .hizli-btn span{min-height:35px;flex-basis:35px;border-radius:0 0 15px 15px}
+}
+
+
 </style>
 </head>
 <body>
