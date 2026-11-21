@@ -492,7 +492,7 @@ async function rolIcerikCiz(aktifler, hazirlar) {
         ${hizliGorevler.map(h => `
           <button type="button" class="hizli-btn" data-metin="${h.metin}" ${!baslatabilir ? 'disabled' : ''} onclick="hizliAciklama(this)">
             <img src="${h.resim}" alt="${h.metin}" onerror="this.style.display='none'; this.nextElementSibling.style.fontSize='36px'; this.nextElementSibling.innerText = '${h.emoji}';">
-            <span>${h.metin}</span>
+            <span>${h.metin === 'Arama Kurtarma' ? 'Arama<br>Kurtarma' : h.metin === 'Diğer Görevler' ? 'Diğer<br>Görevler' : h.metin}</span>
           </button>`).join('')}
       </div>
       <div class="adim-etiket">AÇIKLAMA</div>
